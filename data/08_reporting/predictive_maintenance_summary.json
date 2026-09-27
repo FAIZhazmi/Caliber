@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.1.0",
+  "generated_at": "2026-09-27T12:21:57.049723+00:00",
+  "scoring_timestamp": "2026-10-04T23:00:00",
+  "equipment_count": 20,
+  "plant_count": 9,
+  "risk_level_counts": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "WATCH": 2,
+    "NORMAL": 18
+  },
+  "alert_7d_count": 0,
+  "alert_30d_count": 0,
+  "stale_equipment_count": 0,
+  "source_timezone": "Asia/Jakarta",
+  "source_age_hours": -171.63417468305553,
+  "source_time_status": "FUTURE_SOURCE_TIMESTAMP",
+  "watch_threshold_fraction": 0.5,
+  "split_policy": {
+    "mode": "chronological_percentage_search",
+    "selected_candidate": "57.5_22.5_20",
+    "train_fraction": 0.575,
+    "validation_fraction": 0.225,
+    "test_fraction": 0.2,
+    "validation_start": "2025-06-24T22:00:00",
+    "test_start": "2026-02-27T04:00:00",
+    "purge_gap_equals_horizon": true,
+    "holdout_rca_equipment_from_training": true,
+    "selection_metric": "mean_validation_f1_7d_30d",
+    "threshold_metric": "validation_f1",
+    "test_metrics_used_for_selection": false
+  },
+  "models": {
+    "7d": {
+      "trained_at": "2026-09-27T12:20:09.290042+00:00",
+      "threshold": 0.9957084356669179,
+      "feature_count": 80
+    },
+    "30d": {
+      "trained_at": "2026-09-27T12:20:09.290042+00:00",
+      "threshold": 0.9985568044338882,
+      "feature_count": 80
+    }
+  },
+  "interpretation": {
+    "probabilities": "Uncalibrated model scores; do not interpret as literal risk percentages.",
+    "largest_recent_deviation": "Context signal only; it is not a causal model explanation."
+  }
+}
