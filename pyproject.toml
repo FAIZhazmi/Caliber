@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caliber-ml"
+version = "0.1.0"
+description = "Traceable ML pipelines for the CALIBER 2026 unified dashboard"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "kedro==1.6.0",
+    "kedro-datasets==9.6.0",
+    "numpy==2.2.6",
+    "openpyxl>=3.1,<4",
+    "pandas==2.3.0",
+    "pyarrow>=18,<22",
+    "scikit-learn==1.7.2",
+]
+
+[project.optional-dependencies]
+dashboard = ["plotly>=6,<7", "streamlit>=1.45,<2"]
+dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
+
+[project.scripts]
+caliber-ml = "caliber_ml.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.kedro]
+package_name = "caliber_ml"
+project_name = "CALIBER ML"
+kedro_init_version = "1.6.0"
+source_dir = "src"
+tools = ""
+example_pipeline = "False"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+

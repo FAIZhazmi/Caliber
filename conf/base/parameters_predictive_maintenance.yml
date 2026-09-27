@@ -1,0 +1,33 @@
+predictive_maintenance:
+  horizons_days: [7, 30]
+  holdout_rca_equipment: true
+  threshold_beta: 1.0
+  random_state: 2026
+  excluded_feature_columns: []
+  split_search:
+    minimum_train_events: 12
+    minimum_validation_events: 8
+    minimum_test_events: 8
+    candidates:
+      - {id: "50_30_20", train: 0.50, validation: 0.30, test: 0.20}
+      - {id: "52.5_27.5_20", train: 0.525, validation: 0.275, test: 0.20}
+      - {id: "55_25_20", train: 0.55, validation: 0.25, test: 0.20}
+      - {id: "57.5_22.5_20", train: 0.575, validation: 0.225, test: 0.20}
+      - {id: "60_20_20", train: 0.60, validation: 0.20, test: 0.20}
+      - {id: "65_15_20", train: 0.65, validation: 0.15, test: 0.20}
+      - {id: "70_10_20", train: 0.70, validation: 0.10, test: 0.20}
+      - {id: "80_10_10", train: 0.80, validation: 0.10, test: 0.10}
+  model:
+    learning_rate: 0.08
+    max_iter: 120
+    max_leaf_nodes: 31
+    min_samples_leaf: 100
+    l2_regularization: 1.0
+    max_features: 0.8
+  reporting:
+    watch_threshold_fraction: 0.5
+    stale_after_hours: 24
+    source_stale_after_hours: 48
+    future_tolerance_hours: 1
+    source_timezone: "Asia/Jakarta"
+    signal_zscore_alert: 2.0

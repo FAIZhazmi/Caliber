@@ -1,0 +1,9 @@
+kedro==1.6.0
+kedro-datasets==9.6.0
+numpy==2.2.6
+openpyxl>=3.1,<4
+pandas==2.3.0
+pyarrow>=18,<22
+scikit-learn==1.7.2
+plotly>=6,<7
+streamlit>=1.45,<2

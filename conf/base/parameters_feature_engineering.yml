@@ -1,0 +1,69 @@
+phase1:
+  data_source: "supabase"
+  source_workbook: "Equipment_Master_20_Incident_Equipment (1).xlsx"
+  supabase:
+    url: "https://xfazbvdakufbcqcqllqr.supabase.co/rest/v1"
+    schema: "public"
+    api_key_env: "SUPABASE_SECRET_KEY"
+    access_token_env: "SUPABASE_ACCESS_TOKEN"
+    page_size: 1000
+    timeout_seconds: 30
+    max_retries: 3
+    max_workers: 16
+    tables:
+      equipment: "dim_equipment"
+      equipment_parameter: "dim_equipment_parameter"
+      incident: "fact_incident"
+      condition_history: "fact_condition_weekly"
+      production_data: "fact_production_hourly"
+      environment_data: "fact_environmental_hourly"
+    order_by:
+      equipment: ["equipment_tag"]
+      equipment_parameter: ["equipment_tag", "parameter_no"]
+      incident: ["equipment_tag", "incident_seq"]
+      condition_history: ["equipment_tag", "date"]
+      production_data: ["equipment_tag", "timestamp"]
+      environment_data: ["plant", "timestamp"]
+  rca_directory: "RCA - Downtime Data-20260925T140435Z-1-001/RCA - Downtime Data"
+  as_of_timestamp: "latest"
+  timezone: "Asia/Jakarta"
+  expected_real_cases: 5
+  feature_version: "shared_features_v1.0.0"
+  schema_version: "1.1.0"
+  hourly_windows: {short: 24, long: 168}
+  weekly_windows: {short: 4, long: 12}
+  failure_labeling:
+    horizons_days: [7, 30]
+    recovery_window_hours: 72
+    label_version: "failure_labels_v1.0.0"
+  production_signals:
+    - feed_rate
+    - discharge_pressure
+    - vibration
+    - temperature
+    - motor_ampere
+    - plant_rate
+    - power_kw
+  environmental_signals:
+    - co2_ton
+    - nox_ppm
+    - sox_ppm
+    - voc_fugitive_kg
+    - wastewater_m3
+    - total_energy_kwh
+  nonnegative_condition_parameters:
+    - "Lube Oil Water Content (ppm)"
+    - "Seat Leakage Rate (cc/min)"
+    - "Seat Leak Rate (scfm)"
+    - "Chatter Cycle Count (cycles/day)"
+  model_feature_exclusions:
+    - health_status
+    - run_status
+    - failure_date
+    - is_event_week
+    - hours_to_failure
+    - days_to_failure
+    - days_to_next_failure
+    - failure_within_7d
+    - failure_within_30d
+    - next_failure_date

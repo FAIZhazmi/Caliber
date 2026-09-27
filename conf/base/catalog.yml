@@ -1,0 +1,112 @@
+equipment_info_raw:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/equipment_info.parquet
+  save_args: {compression: zstd}
+
+condition_history_raw:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/condition_history.parquet
+  save_args: {compression: zstd}
+
+production_data_raw:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/production_data.parquet
+  save_args: {compression: zstd}
+
+environment_data_raw:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/environment_data.parquet
+  save_args: {compression: zstd}
+
+incident_history_raw:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/incident_history.parquet
+  save_args: {compression: zstd}
+
+incident_registry:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/incident_registry.parquet
+  save_args: {compression: zstd}
+
+rca_corpus:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/rca_corpus.parquet
+  save_args: {compression: zstd}
+
+plant_hourly_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/plant_hourly_features.parquet
+  save_args: {compression: zstd}
+
+plant_equipment_context:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/plant_equipment_context.parquet
+  save_args: {compression: zstd}
+
+equipment_hourly_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/equipment_hourly_features.parquet
+  save_args: {compression: zstd}
+
+equipment_latest_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/equipment_latest_features.parquet
+  save_args: {compression: zstd}
+
+condition_weekly_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/condition_weekly_features.parquet
+  save_args: {compression: zstd}
+
+condition_evaluation_labels:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/condition_evaluation_labels.parquet
+  save_args: {compression: zstd}
+
+equipment_failure_labels:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/equipment_failure_labels.parquet
+  save_args: {compression: zstd}
+
+feature_manifest:
+  type: json.JSONDataset
+  filepath: data/04_feature/feature_manifest.json
+  save_args: {indent: 2}
+
+failure_model_7d:
+  type: pickle.PickleDataset
+  filepath: data/06_models/failure_model_7d.pkl
+
+failure_model_30d:
+  type: pickle.PickleDataset
+  filepath: data/06_models/failure_model_30d.pkl
+
+predictive_maintenance_metrics:
+  type: json.JSONDataset
+  filepath: data/07_model_output/predictive_maintenance_metrics.json
+  save_args: {indent: 2}
+
+failure_evaluation_predictions:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/failure_evaluation_predictions.parquet
+  save_args: {compression: zstd}
+
+split_search_results:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/split_search_results.parquet
+  save_args: {compression: zstd}
+
+current_equipment_risk:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/current_equipment_risk.parquet
+  save_args: {compression: zstd}
+
+plant_risk_summary:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/plant_risk_summary.parquet
+  save_args: {compression: zstd}
+
+predictive_maintenance_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/predictive_maintenance_summary.json
+  save_args: {indent: 2}
