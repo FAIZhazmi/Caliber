@@ -7,10 +7,13 @@ import pandas as pd
 
 from caliber_ml.pipelines.predictive_maintenance.nodes import (
     _event_metrics,
+    _persistence_state,
+    _select_operational_threshold,
     _select_threshold,
     _select_split_candidate,
     _temporal_ratio_boundaries,
     _temporal_split_masks,
+    audit_failure_labels,
     score_latest_equipment_risk,
 )
 
@@ -118,6 +121,147 @@ class PredictiveMaintenanceTests(unittest.TestCase):
         self.assertEqual(metrics["event_recall"], 0.5)
         self.assertEqual(metrics["median_earliest_warning_days"], 5.0)
 
+    def test_operational_threshold_requires_event_lead_and_false_alert_constraints(self):
+        curve = pd.DataFrame(
+            {
+                "threshold": [0.4, 0.6, 0.8],
+                "precision": [0.3, 0.7, 0.9],
+                "recall": [0.9, 0.8, 0.5],
+                "f1": [0.45, 0.75, 0.64],
+                "event_recall": [1.0, 0.8, 0.5],
+                "median_earliest_warning_days": [5.0, 4.0, 2.0],
+                "false_alert_days_per_equipment_month": [2.0, 0.8, 0.1],
+            }
+        )
+
+        threshold, summary, annotated = _select_operational_threshold(
+            curve,
+            {
+                "minimum_event_recall": 0.8,
+                "minimum_median_warning_days": 3.0,
+                "maximum_false_alert_days_per_equipment_month": 1.0,
+            },
+            "action",
+        )
+
+        self.assertEqual(threshold, 0.6)
+        self.assertTrue(summary["constraints_met"])
+        self.assertEqual(int(annotated["selected_action"].sum()), 1)
+
+    def test_operational_threshold_relaxes_false_alert_limit_before_event_recall(self):
+        curve = pd.DataFrame(
+            {
+                "threshold": [0.3, 0.8],
+                "precision": [0.4, 0.9],
+                "recall": [0.8, 0.4],
+                "f1": [0.53, 0.55],
+                "event_recall": [0.9, 0.5],
+                "median_earliest_warning_days": [10.0, 2.0],
+                "false_alert_days_per_equipment_month": [3.0, 0.1],
+            }
+        )
+
+        threshold, summary, _ = _select_operational_threshold(
+            curve,
+            {
+                "minimum_event_recall": 0.8,
+                "minimum_median_warning_days": 7.0,
+                "maximum_false_alert_days_per_equipment_month": 1.0,
+            },
+            "action",
+        )
+
+        self.assertEqual(threshold, 0.3)
+        self.assertFalse(summary["constraints_met"])
+        self.assertTrue(summary["event_and_lead_constraints_met"])
+        self.assertFalse(summary["false_alert_limit_met"])
+
+    def test_persistence_requires_three_hits_in_six_and_latest_hit(self):
+        scored = pd.DataFrame(
+            {
+                "equipment_tag": ["EQ-1"] * 7,
+                "timestamp": pd.date_range("2026-01-01", periods=7, freq="h"),
+                "failure_probability": [0.9, 0.1, 0.8, 0.7, 0.1, 0.1, 0.9],
+            }
+        )
+
+        persistent, hits = _persistence_state(
+            scored,
+            0.5,
+            {"lookback_hours": 6, "minimum_hits": 3, "require_latest": True},
+        )
+
+        self.assertEqual(hits.tolist(), [1, 1, 2, 3, 3, 3, 3])
+        self.assertEqual(
+            persistent.tolist(), [False, False, False, True, False, False, True]
+        )
+
+    def test_label_audit_counts_events_and_detects_future_observations(self):
+        labels = pd.DataFrame(
+            {
+                "equipment_tag": ["EQ-1", "EQ-1", "EQ-1"],
+                "timestamp": pd.to_datetime(
+                    ["2026-01-01", "2026-01-02", "2026-01-03"]
+                ),
+                "next_failure_date": pd.to_datetime(
+                    ["2026-01-04", "2026-01-04", "2026-01-04"]
+                ),
+                "days_to_next_failure": [3.0, 2.0, 1.0],
+                "next_event_label_source": ["rca_document"] * 3,
+                "event_is_rca_document": [True] * 3,
+                "is_recovery_window": [False] * 3,
+                "failure_within_7d": [1, 1, 1],
+                "failure_within_30d": [1, 1, 1],
+            }
+        )
+
+        report, events = audit_failure_labels(
+            labels,
+            {
+                "label_audit": {"reference_timestamp": "2026-01-02 12:00:00"},
+                "reporting": {"source_timezone": "Asia/Jakarta"},
+            },
+        )
+
+        self.assertEqual(report["event_count"], 1)
+        self.assertEqual(report["rca_verified_event_count"], 1)
+        self.assertEqual(report["future_observation_rows"], 1)
+        self.assertEqual(report["future_event_count"], 1)
+        self.assertEqual(report["quality_status"], "WARN")
+        self.assertEqual(events.loc[0, "positive_hours_7d"], 3)
+
+    def test_synthetic_demo_timestamps_are_documented_not_warned(self):
+        labels = pd.DataFrame(
+            {
+                "equipment_tag": ["EQ-1"],
+                "timestamp": pd.to_datetime(["2026-10-04"]),
+                "next_failure_date": pd.to_datetime([None]),
+                "days_to_next_failure": [np.nan],
+                "next_event_label_source": [None],
+                "event_is_rca_document": [False],
+                "is_recovery_window": [False],
+                "failure_within_7d": [0],
+                "failure_within_30d": [0],
+            }
+        )
+
+        report, _ = audit_failure_labels(
+            labels,
+            {
+                "dataset_mode": "synthetic_demo",
+                "label_audit": {
+                    "reference_timestamp": "2026-09-29",
+                    "allow_future_observations_for_synthetic_demo": True,
+                },
+                "reporting": {"source_timezone": "Asia/Jakarta"},
+            },
+        )
+
+        self.assertTrue(report["future_observations_expected"])
+        self.assertEqual(report["warnings"], [])
+        self.assertEqual(report["quality_status"], "PASS")
+        self.assertEqual(len(report["information"]), 1)
+
     def test_latest_scoring_builds_ranked_equipment_and_plant_outputs(self):
         rows = []
         for tag, plant, timestamp, score in [
@@ -144,22 +288,23 @@ class PredictiveMaintenanceTests(unittest.TestCase):
             )
         features = pd.DataFrame(rows)
 
-        def bundle(horizon, threshold):
+        def bundle(horizon, threshold, warning_threshold):
             return {
                 "estimator": ProbabilityFromFeature(),
                 "feature_columns": ["signal"],
                 "horizon_days": horizon,
                 "threshold": threshold,
+                "warning_threshold": warning_threshold,
                 "trained_at": "2026-01-01T00:00:00+00:00",
             }
 
         risk, plants, summary = score_latest_equipment_risk(
             features,
-            bundle(7, 0.8),
-            bundle(30, 0.5),
+            bundle(7, 0.8, 0.6),
+            bundle(30, 0.5, 0.3),
+            {"quality_status": "PASS", "event_count": 1},
             {
                 "reporting": {
-                    "watch_threshold_fraction": 0.5,
                     "stale_after_hours": 24,
                     "signal_zscore_alert": 2.0,
                 }
@@ -169,14 +314,16 @@ class PredictiveMaintenanceTests(unittest.TestCase):
         by_tag = risk.set_index("equipment_tag")
         self.assertEqual(len(risk), 3)
         self.assertEqual(by_tag.loc["EQ-A", "scoring_timestamp"], pd.Timestamp("2026-01-02"))
-        self.assertEqual(by_tag.loc["EQ-A", "risk_level"], "CRITICAL")
-        self.assertEqual(by_tag.loc["EQ-B", "risk_level"], "HIGH")
-        self.assertEqual(by_tag.loc["EQ-C", "risk_level"], "WATCH")
+        self.assertEqual(by_tag.loc["EQ-A", "risk_level"], "ACTION_NOW")
+        self.assertEqual(by_tag.loc["EQ-B", "risk_level"], "PLAN_MAINTENANCE")
+        self.assertEqual(by_tag.loc["EQ-C", "risk_level"], "MONITOR")
         self.assertEqual(risk.iloc[0]["equipment_tag"], "EQ-A")
-        self.assertEqual(plants.set_index("plant").loc["P1", "critical_count"], 1)
-        self.assertEqual(plants.set_index("plant").loc["P1", "high_count"], 1)
+        self.assertEqual(plants.set_index("plant").loc["P1", "action_now_count"], 1)
+        self.assertEqual(
+            plants.set_index("plant").loc["P1", "plan_maintenance_count"], 1
+        )
         self.assertEqual(summary["equipment_count"], 3)
-        self.assertEqual(summary["risk_level_counts"]["WATCH"], 1)
+        self.assertEqual(summary["risk_level_counts"]["MONITOR"], 1)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-RISK_LEVELS = ("CRITICAL", "HIGH", "WATCH", "NORMAL")
+RISK_LEVELS = ("ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR", "NORMAL")
 RISK_REQUIRED_COLUMNS = {
     "risk_rank",
     "equipment_tag",
@@ -22,10 +22,18 @@ RISK_REQUIRED_COLUMNS = {
     "failure_probability_30d",
     "model_threshold_7d",
     "model_threshold_30d",
+    "warning_threshold_7d",
+    "warning_threshold_30d",
     "alert_7d",
     "alert_30d",
+    "warning_7d",
+    "warning_30d",
+    "raw_alert_7d",
+    "raw_alert_30d",
+    "action_persistence_hits_7d",
+    "action_persistence_hits_30d",
     "risk_level",
-    "risk_score_0_100",
+    "threshold_proximity_0_100",
     "recommended_action",
     "source_time_status",
 }
@@ -33,9 +41,9 @@ PLANT_REQUIRED_COLUMNS = {
     "plant_rank",
     "plant",
     "equipment_count",
-    "critical_count",
-    "high_count",
-    "watch_count",
+    "action_now_count",
+    "plan_maintenance_count",
+    "monitor_count",
     "normal_count",
     "alert_7d_count",
     "alert_30d_count",
@@ -145,9 +153,9 @@ def aggregate_equipment_by_plant(risk: pd.DataFrame) -> pd.DataFrame:
     if risk.empty:
         return pd.DataFrame()
     working = risk.assign(
-        _critical=risk["risk_level"].eq("CRITICAL").astype("int16"),
-        _high=risk["risk_level"].eq("HIGH").astype("int16"),
-        _watch=risk["risk_level"].eq("WATCH").astype("int16"),
+        _action_now=risk["risk_level"].eq("ACTION_NOW").astype("int16"),
+        _plan=risk["risk_level"].eq("PLAN_MAINTENANCE").astype("int16"),
+        _monitor=risk["risk_level"].eq("MONITOR").astype("int16"),
         _normal=risk["risk_level"].eq("NORMAL").astype("int16"),
     )
     aggregated = (
@@ -155,15 +163,15 @@ def aggregate_equipment_by_plant(risk: pd.DataFrame) -> pd.DataFrame:
         .agg(
             scoring_timestamp=("scoring_timestamp", "max"),
             equipment_count=("equipment_tag", "nunique"),
-            critical_count=("_critical", "sum"),
-            high_count=("_high", "sum"),
-            watch_count=("_watch", "sum"),
+            action_now_count=("_action_now", "sum"),
+            plan_maintenance_count=("_plan", "sum"),
+            monitor_count=("_monitor", "sum"),
             normal_count=("_normal", "sum"),
             alert_7d_count=("alert_7d", "sum"),
             alert_30d_count=("alert_30d", "sum"),
             maximum_probability_7d=("failure_probability_7d", "max"),
             maximum_probability_30d=("failure_probability_30d", "max"),
-            maximum_risk_score=("risk_score_0_100", "max"),
+            maximum_threshold_proximity=("threshold_proximity_0_100", "max"),
             _best_equipment_rank=("risk_rank", "min"),
         )
         .reset_index()

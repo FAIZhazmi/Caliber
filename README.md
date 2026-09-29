@@ -28,6 +28,8 @@ Copy-Item .env.example .env
 # Edit SUPABASE_SECRET_KEY inside .env
 python Caliber.py run --pipelines feature_engineering
 python Caliber.py run --pipelines predictive_maintenance
+# Explicitly publish persistent non-normal snapshots after model validation:
+python Caliber.py run --pipelines prediction_publishing
 # Or rebuild features and train both models in one run:
 python Caliber.py run
 ```
@@ -80,7 +82,12 @@ equipment-hour and is joined to features by `equipment_tag` plus `timestamp`.
   and other Supabase incidents.
 
 Label counts and censoring totals for each run are recorded in
-`data/04_feature/feature_manifest.json`.
+`data/04_feature/feature_manifest.json`. The predictive-maintenance pipeline also writes a
+dedicated quality audit:
+
+- `failure_label_quality_report.json`: event/source counts, future timestamps, duplicate keys,
+  hourly gaps, censoring, label monotonicity, and date-to-failure consistency.
+- `failure_event_audit.parquet`: one traceable row for every distinct labeled failure event.
 
 ## Predictive-maintenance baselines
 
@@ -95,24 +102,36 @@ models from the hourly equipment features. Its evaluation is chronological:
 - A purge gap equal to each prediction horizon prevents labels from crossing a split boundary.
 - The five RCA-backed equipment items are excluded from training and reported as a separate
   test cohort.
-- Split and probability thresholds are selected only on validation data by maximising mean F1,
-  which gives precision and recall equal weight. Final test metrics never enter selection.
+- The percentage split is selected on validation data. Action and warning thresholds are then
+  calibrated from three expanding-window backtest folds using event recall, median earliest
+  warning lead time, and false-alert equipment-days per equipment-month. Final test metrics
+  never enter split or threshold selection.
 - Class weighting is used because failure-hour labels are rare.
 
 Model bundles are written to `data/06_models/failure_model_7d.pkl` and
 `failure_model_30d.pkl`. Each bundle contains the estimator, ordered feature names, selected
-threshold, target, horizon, and split policy. Evaluation predictions and aggregate/cohort/event
-metrics are written to `data/07_model_output`. Treat the probabilities as ranking scores until
-they are calibrated on more observed incidents; operational alert thresholds should be selected
-with maintenance capacity and false-alarm cost in mind.
+action threshold, warning threshold, target, horizon, calibration evidence, and split policy.
+Evaluation predictions and aggregate/cohort/event metrics are written to
+`data/07_model_output`. Treat the probabilities as ranking scores until they are calibrated on
+more observed incidents.
 All accepted/rejected candidates, boundaries, incident counts, thresholds, and validation
 metrics are stored in `data/07_model_output/split_search_results.parquet`.
+Per-fold operational metrics are stored in `rolling_backtest_results.parquet`, and the complete
+threshold frontier is stored in `threshold_calibration_results.parquet`. When no threshold can
+meet all constraints, the system prioritises event recall and warning lead time, chooses the
+lowest-false-alert candidate among them, and records that the false-alert limit was relaxed.
+`alert_persistence_evaluation.json` compares the configured rule with raw one-reading alerts
+and several stricter 30-day persistence rules at the selected action threshold.
 
-The reporting node scores only `equipment_latest_features.parquet`, rather than loading the full
-hourly history again. It writes:
+The reporting path first keeps the six most recent hourly rows per equipment, scores all six,
+and then exposes only the latest row. The default persistence rule requires at least three of
+those six scores to cross the relevant threshold and requires the latest score to still be
+above it. The same rule is applied inside rolling backtests, final-test metrics, and dashboard
+scoring. It writes:
 
 - `data/08_reporting/current_equipment_risk.parquet`: one ranked row per equipment, including
-  model scores, thresholds, alerts, current signals, freshness status, and recommended action.
+  model scores, action/warning thresholds, alerts, current signals, freshness status, and
+  recommended action.
 - `data/08_reporting/plant_risk_summary.parquet`: alert counts and the highest-priority equipment
   for each plant.
 - `data/08_reporting/predictive_maintenance_summary.json`: compact dashboard KPIs and model
@@ -125,8 +144,39 @@ python Caliber.py run --pipelines predictive_maintenance --nodes score_latest_eq
 ```
 
 `largest_recent_deviation_signal` is contextual sensor information, not a causal explanation.
-The output also flags source timestamps that are stale or unexpectedly in the future relative to
-the configured `Asia/Jakarta` timezone.
+The current configuration declares the snapshot through 4 October 2026 as
+`synthetic_demo`. Those timestamps are reported as an expected simulation snapshot rather than
+as broken real-time telemetry. This declaration does not turn the 38 non-RCA incidents into
+verified real incidents; the label audit continues to warn that only five of 43 events are
+RCA-verified.
+
+Operational status is deliberately separate from equipment criticality:
+
+- `ACTION_NOW`: the 7-day action threshold is crossed.
+- `PLAN_MAINTENANCE`: the 30-day action threshold is crossed while the 7-day threshold is not.
+- `MONITOR`: no action threshold is crossed, but a rolling-backtest warning threshold is crossed.
+- `NORMAL`: both model scores remain below their warning thresholds.
+
+`threshold_proximity_0_100` is proximity to an action threshold, not a literal failure
+probability. The previous rule that assigned `WATCH` at 50% of an action threshold has been
+removed.
+
+### Supabase prediction publication
+
+Prediction publication is intentionally excluded from the default pipeline. Run
+`prediction_publishing` only after reviewing the audit and backtest artifacts. It publishes
+only persistent `ACTION_NOW`, `PLAN_MAINTENANCE`, and `MONITOR` rows to
+`public.fact_prediction_alert`.
+
+- IDs use `CALIBER-SIM-YYYYMMDD-EQUIPMENT-HORIZON`, so reruns upsert instead of duplicating.
+- Rows use the database-valid status `Open`; the `CALIBER-SIM` prefix identifies simulation
+  records.
+- `failure_probability_pct` contains the legacy table's representation of the model score.
+  The score is uncalibrated and must not be interpreted as a literal probability.
+- `root_cause_hint` records the dominant recent sensor deviation as context and explicitly
+  states that it is not a verified root cause.
+- A successful run writes `prediction_publish_receipt.json` and verifies every published ID by
+  reading it back from Supabase.
 
 ## Dashboard
 

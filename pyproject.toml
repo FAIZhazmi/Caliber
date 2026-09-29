@@ -42,3 +42,6 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
 
+
+[tool.kedro_telemetry]
+project_id = "f4664aac390d4625a4a2eaed687fea4c"

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "published_at": "2026-09-29T11:39:29.196555+00:00",
+  "target_table": "fact_prediction_alert",
+  "submitted_rows": 3,
+  "returned_rows": 3,
+  "verified_rows": 3,
+  "alert_ids": [
+    "CALIBER-SIM-20261004-BL-5702-30D",
+    "CALIBER-SIM-20261004-HE-3301-30D",
+    "CALIBER-SIM-20261004-PM-4405B-30D"
+  ],
+  "status": "VERIFIED"
+}

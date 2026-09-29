@@ -23,14 +23,14 @@ class DashboardDataTests(unittest.TestCase):
                 "equipment_type": ["Pump", "Pump", "Compressor"],
                 "plant": ["A", "A", "B"],
                 "criticality": ["High", "Medium", "High"],
-                "risk_level": ["HIGH", "WATCH", "NORMAL"],
+                "risk_level": ["PLAN_MAINTENANCE", "MONITOR", "NORMAL"],
             }
         )
 
         filtered = filter_equipment_risk(
             risk,
             plants=["A"],
-            risk_levels=["WATCH"],
+            risk_levels=["MONITOR"],
             search="[2]",
         )
 
@@ -42,20 +42,22 @@ class DashboardDataTests(unittest.TestCase):
                 "risk_rank": [1, 2],
                 "equipment_tag": ["EQ-1", "EQ-2"],
                 "plant": ["P1", "P1"],
-                "risk_level": ["HIGH", "NORMAL"],
+                "risk_level": ["PLAN_MAINTENANCE", "NORMAL"],
                 "scoring_timestamp": pd.to_datetime(["2026-01-01", "2026-01-01"]),
                 "alert_7d": [False, False],
                 "alert_30d": [True, False],
                 "failure_probability_7d": [0.8, 0.1],
                 "failure_probability_30d": [0.9, 0.2],
-                "risk_score_0_100": [100.0, 20.0],
+                "threshold_proximity_0_100": [100.0, 20.0],
             }
         )
 
-        plant = aggregate_equipment_by_plant(risk.loc[risk["risk_level"].eq("HIGH")])
+        plant = aggregate_equipment_by_plant(
+            risk.loc[risk["risk_level"].eq("PLAN_MAINTENANCE")]
+        )
 
         self.assertEqual(plant.loc[0, "equipment_count"], 1)
-        self.assertEqual(plant.loc[0, "high_count"], 1)
+        self.assertEqual(plant.loc[0, "plan_maintenance_count"], 1)
         self.assertEqual(plant.loc[0, "normal_count"], 0)
         self.assertEqual(plant.loc[0, "highest_risk_equipment"], "EQ-1")
 
@@ -76,10 +78,18 @@ class DashboardDataTests(unittest.TestCase):
                     "failure_probability_30d": 0.9,
                     "model_threshold_7d": 0.7,
                     "model_threshold_30d": 0.6,
+                    "warning_threshold_7d": 0.5,
+                    "warning_threshold_30d": 0.4,
                     "alert_7d": True,
                     "alert_30d": True,
-                    "risk_level": "CRITICAL",
-                    "risk_score_0_100": 100.0,
+                    "warning_7d": True,
+                    "warning_30d": True,
+                    "raw_alert_7d": True,
+                    "raw_alert_30d": True,
+                    "action_persistence_hits_7d": 3,
+                    "action_persistence_hits_30d": 3,
+                    "risk_level": "ACTION_NOW",
+                    "threshold_proximity_0_100": 100.0,
                     "recommended_action": "Inspect",
                     "source_time_status": "CURRENT_SOURCE_TIMESTAMP",
                 }
@@ -91,14 +101,14 @@ class DashboardDataTests(unittest.TestCase):
                     "plant_rank": 1,
                     "plant": "P1",
                     "equipment_count": 1,
-                    "critical_count": 1,
-                    "high_count": 0,
-                    "watch_count": 0,
+                    "action_now_count": 1,
+                    "plan_maintenance_count": 0,
+                    "monitor_count": 0,
                     "normal_count": 0,
                     "alert_7d_count": 1,
                     "alert_30d_count": 1,
                     "highest_risk_equipment": "EQ-1",
-                    "highest_risk_level": "CRITICAL",
+                    "highest_risk_level": "ACTION_NOW",
                 }
             ]
         )
@@ -109,9 +119,9 @@ class DashboardDataTests(unittest.TestCase):
             "equipment_count": 1,
             "plant_count": 1,
             "risk_level_counts": {
-                "CRITICAL": 1,
-                "HIGH": 0,
-                "WATCH": 0,
+                "ACTION_NOW": 1,
+                "PLAN_MAINTENANCE": 0,
+                "MONITOR": 0,
                 "NORMAL": 0,
             },
             "alert_7d_count": 1,

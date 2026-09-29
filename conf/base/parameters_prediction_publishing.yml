@@ -1,0 +1,11 @@
+prediction_publishing:
+  alert_id_prefix: "CALIBER-SIM"
+  published_status: "Open"
+  publish_risk_levels: ["ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR"]
+  supabase:
+    url: "https://xfazbvdakufbcqcqllqr.supabase.co/rest/v1"
+    schema: "public"
+    table: "fact_prediction_alert"
+    api_key_env: "SUPABASE_SECRET_KEY"
+    access_token_env: "SUPABASE_ACCESS_TOKEN"
+    timeout_seconds: 30

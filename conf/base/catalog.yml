@@ -53,6 +53,11 @@ equipment_latest_features:
   filepath: data/04_feature/equipment_latest_features.parquet
   save_args: {compression: zstd}
 
+equipment_scoring_window_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/equipment_scoring_window_features.parquet
+  save_args: {compression: zstd}
+
 condition_weekly_features:
   type: pandas.ParquetDataset
   filepath: data/04_feature/condition_weekly_features.parquet
@@ -96,6 +101,31 @@ split_search_results:
   filepath: data/07_model_output/split_search_results.parquet
   save_args: {compression: zstd}
 
+failure_label_quality_report:
+  type: json.JSONDataset
+  filepath: data/07_model_output/failure_label_quality_report.json
+  save_args: {indent: 2}
+
+failure_event_audit:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/failure_event_audit.parquet
+  save_args: {compression: zstd}
+
+rolling_backtest_results:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/rolling_backtest_results.parquet
+  save_args: {compression: zstd}
+
+threshold_calibration_results:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/threshold_calibration_results.parquet
+  save_args: {compression: zstd}
+
+alert_persistence_evaluation:
+  type: json.JSONDataset
+  filepath: data/07_model_output/alert_persistence_evaluation.json
+  save_args: {indent: 2}
+
 current_equipment_risk:
   type: pandas.ParquetDataset
   filepath: data/08_reporting/current_equipment_risk.parquet
@@ -109,4 +139,14 @@ plant_risk_summary:
 predictive_maintenance_summary:
   type: json.JSONDataset
   filepath: data/08_reporting/predictive_maintenance_summary.json
+  save_args: {indent: 2}
+
+prediction_publish_payload:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/prediction_publish_payload.parquet
+  save_args: {compression: zstd}
+
+prediction_publish_receipt:
+  type: json.JSONDataset
+  filepath: data/08_reporting/prediction_publish_receipt.json
   save_args: {indent: 2}

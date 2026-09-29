@@ -1,9 +1,24 @@
 predictive_maintenance:
+  dataset_mode: "synthetic_demo"
+  synthetic_snapshot_note: "Data sampai 4 Oktober 2026 adalah data sintetis untuk simulasi, bukan telemetry real-time."
   horizons_days: [7, 30]
   holdout_rca_equipment: true
   threshold_beta: 1.0
   random_state: 2026
   excluded_feature_columns: []
+  label_audit:
+    reference_timestamp: "now"
+    allow_future_observations_for_synthetic_demo: true
+  alert_persistence:
+    lookback_hours: 6
+    minimum_hits: 3
+    require_latest: true
+    evaluation_rules_30d:
+      - {lookback_hours: 3, minimum_hits: 2}
+      - {lookback_hours: 6, minimum_hits: 3}
+      - {lookback_hours: 6, minimum_hits: 4}
+      - {lookback_hours: 12, minimum_hits: 9}
+      - {lookback_hours: 24, minimum_hits: 18}
   split_search:
     minimum_train_events: 12
     minimum_validation_events: 8
@@ -24,8 +39,32 @@ predictive_maintenance:
     min_samples_leaf: 100
     l2_regularization: 1.0
     max_features: 0.8
+  rolling_backtest:
+    folds: 3
+    initial_train_fraction_of_development: 0.50
+    minimum_train_events: 8
+    minimum_validation_events: 5
+  threshold_calibration:
+    threshold_candidate_count: 121
+    action:
+      7d:
+        minimum_event_recall: 0.80
+        minimum_median_warning_days: 1.0
+        maximum_false_alert_days_per_equipment_month: 1.0
+      30d:
+        minimum_event_recall: 0.80
+        minimum_median_warning_days: 7.0
+        maximum_false_alert_days_per_equipment_month: 1.5
+    warning:
+      7d:
+        minimum_event_recall: 0.90
+        minimum_median_warning_days: 2.0
+        maximum_false_alert_days_per_equipment_month: 2.0
+      30d:
+        minimum_event_recall: 0.90
+        minimum_median_warning_days: 14.0
+        maximum_false_alert_days_per_equipment_month: 3.0
   reporting:
-    watch_threshold_fraction: 0.5
     stale_after_hours: 24
     source_stale_after_hours: 48
     future_tolerance_hours: 1
