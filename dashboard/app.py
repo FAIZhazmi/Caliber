@@ -21,6 +21,9 @@ from dashboard.data import (  # noqa: E402
     filter_equipment_risk,
     load_dashboard_data,
 )
+from dashboard.descriptive import render_descriptive_tab  # noqa: E402
+from dashboard.filters import render_sidebar_filters  # noqa: E402
+from dashboard import queries  # noqa: E402
 
 
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
@@ -181,7 +184,7 @@ def _risk_table(frame: pd.DataFrame) -> None:
 
 
 st.set_page_config(
-    page_title="CALIBER | Predictive Maintenance",
+    page_title="CALIBER | Unified Manufacturing Intelligence",
     page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -215,369 +218,405 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-try:
-    equipment_risk, plant_summary, summary = _cached_dashboard_data(
-        str(REPORTING_DIRECTORY)
-    )
-except DashboardDataError as exc:
-    st.error(str(exc))
-    st.info("Jalankan pipeline reporting terlebih dahulu:")
-    st.code(
-        "python Caliber.py run --pipelines predictive_maintenance "
-        "--nodes score_latest_equipment_risk",
-        language="powershell",
-    )
-    st.stop()
+def render_predictive_tab() -> None:
+    try:
+        equipment_risk, plant_summary, summary = _cached_dashboard_data(
+            str(REPORTING_DIRECTORY)
+        )
+    except DashboardDataError as exc:
+        st.error(str(exc))
+        st.info("Jalankan pipeline reporting terlebih dahulu:")
+        st.code(
+            "python Caliber.py run --pipelines predictive_maintenance "
+            "--nodes score_latest_equipment_risk",
+            language="powershell",
+        )
+        st.stop()
 
-with st.sidebar:
-    st.markdown("## CALIBER")
-    st.caption("Predictive Maintenance Console")
-    if st.button("Muat ulang data", width="stretch"):
-        st.cache_data.clear()
-        st.rerun()
-    st.divider()
-    selected_plants = st.multiselect(
-        "Plant",
-        options=sorted(equipment_risk["plant"].dropna().astype(str).unique()),
-        default=[],
-        placeholder="Semua plant",
+    with st.sidebar.expander("Filter - Predictive Maintenance", expanded=False):
+        if st.button("Muat ulang data", width="stretch", key="predictive_reload"):
+            st.cache_data.clear()
+            st.rerun()
+        selected_plants = st.multiselect(
+            "Plant",
+            options=sorted(equipment_risk["plant"].dropna().astype(str).unique()),
+            default=[],
+            placeholder="Semua plant",
+            key="pred_plant_filter",
+        )
+        selected_levels = st.multiselect(
+            "Status risiko",
+            options=list(RISK_LEVELS),
+            default=[],
+            placeholder="Semua status",
+            key="pred_level_filter",
+        )
+        selected_criticalities = st.multiselect(
+            "Criticality",
+            options=sorted(equipment_risk["criticality"].dropna().astype(str).unique()),
+            default=[],
+            placeholder="Semua criticality",
+            key="pred_crit_filter",
+        )
+        search = st.text_input(
+            "Cari equipment",
+            placeholder="Tag, nama, atau tipe...",
+            key="pred_search_filter",
+        )
+        st.caption(
+            f"Schema reporting {summary['schema_version']}  •  "
+            f"{summary.get('source_timezone', 'Asia/Jakarta')}"
+        )
+
+    filtered = filter_equipment_risk(
+        equipment_risk,
+        plants=selected_plants,
+        risk_levels=selected_levels,
+        criticalities=selected_criticalities,
+        search=search,
     )
-    selected_levels = st.multiselect(
-        "Status risiko",
-        options=list(RISK_LEVELS),
-        default=[],
-        placeholder="Semua status",
-    )
-    selected_criticalities = st.multiselect(
-        "Criticality",
-        options=sorted(equipment_risk["criticality"].dropna().astype(str).unique()),
-        default=[],
-        placeholder="Semua criticality",
-    )
-    search = st.text_input(
-        "Cari equipment",
-        placeholder="Tag, nama, atau tipe...",
-    )
-    st.divider()
-    st.caption(
-        f"Schema reporting {summary['schema_version']}  •  "
-        f"{summary.get('source_timezone', 'Asia/Jakarta')}"
+    filtered_plants = aggregate_equipment_by_plant(filtered)
+
+    snapshot = pd.Timestamp(summary["scoring_timestamp"])
+    st.markdown(
+        f"""
+        <div class="caliber-header">
+          <div class="caliber-kicker">ASSET INTELLIGENCE • CALIBER 2026</div>
+          <div class="caliber-title">Predictive Maintenance</div>
+          <p class="caliber-subtitle">Prioritas inspeksi berbasis risiko kegagalan 7 dan 30 hari •
+          Snapshot {snapshot.strftime('%d %b %Y %H:%M')}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-filtered = filter_equipment_risk(
-    equipment_risk,
-    plants=selected_plants,
-    risk_levels=selected_levels,
-    criticalities=selected_criticalities,
-    search=search,
-)
-filtered_plants = aggregate_equipment_by_plant(filtered)
+    source_status = summary["source_time_status"]
+    source_age = float(summary.get("source_age_hours", 0))
+    if source_status == "SYNTHETIC_DEMO_SNAPSHOT":
+        st.info(
+            summary.get(
+                "synthetic_snapshot_note",
+                "Snapshot ini menggunakan data sintetis untuk simulasi dan bukan telemetry real-time.",
+            )
+        )
+    elif source_status == "FUTURE_SOURCE_TIMESTAMP":
+        st.warning(
+            f"Timestamp sumber berada {abs(source_age):.1f} jam di masa depan. "
+            "Verifikasi timezone atau tanggal data Supabase sebelum menggunakan alert untuk keputusan operasi."
+        )
+    elif source_status == "STALE_SOURCE_TIMESTAMP":
+        st.warning(
+            f"Data sumber terakhir berusia {source_age:.1f} jam. Jalankan refresh pipeline sebelum "
+            "menggunakan rekomendasi."
+        )
+    else:
+        st.success(f"Data sumber terkini • usia snapshot {max(source_age, 0):.1f} jam")
 
-snapshot = pd.Timestamp(summary["scoring_timestamp"])
+    if filtered.empty:
+        st.info("Tidak ada equipment yang cocok dengan filter saat ini.")
+        st.stop()
+
+    urgent_count = int(
+        filtered["risk_level"].isin(["ACTION_NOW", "PLAN_MAINTENANCE"]).sum()
+    )
+    kpi_columns = st.columns(6)
+    kpi_columns[0].metric("Equipment", len(filtered), delta=f"dari {len(equipment_risk)}")
+    kpi_columns[1].metric("Perlu tindakan", urgent_count)
+    kpi_columns[2].metric("Monitor", int(filtered["risk_level"].eq("MONITOR").sum()))
+    kpi_columns[3].metric("Alert 7 hari", int(filtered["alert_7d"].sum()))
+    kpi_columns[4].metric("Alert 30 hari", int(filtered["alert_30d"].sum()))
+    kpi_columns[5].metric("Plant terpilih", int(filtered["plant"].nunique()))
+
+    overview_tab, equipment_tab, plant_tab, model_tab = st.tabs(
+        ["Ringkasan", "Equipment", "Plant", "Model & data"]
+    )
+
+    with overview_tab:
+        chart_left, chart_right = st.columns([0.9, 1.4])
+        with chart_left:
+            st.subheader("Distribusi status")
+            st.plotly_chart(
+                _risk_donut(filtered), width="stretch", key="overview_risk_donut"
+            )
+        with chart_right:
+            st.subheader("Profil risiko per plant")
+            if filtered_plants.empty:
+                st.info("Tidak ada ringkasan plant untuk filter ini.")
+            else:
+                st.plotly_chart(
+                    _plant_chart(filtered_plants),
+                    width="stretch",
+                    key="overview_plant_chart",
+                )
+
+        st.subheader("Antrian prioritas")
+        st.markdown(
+            '<p class="section-caption">Urutan berdasarkan urgensi dan kedekatan action threshold.</p>',
+            unsafe_allow_html=True,
+        )
+        priority = filtered.loc[filtered["risk_level"].ne("NORMAL")]
+        if priority.empty:
+            st.success("Tidak ada equipment yang memerlukan tindakan atau monitoring tambahan.")
+        else:
+            _risk_table(priority)
+
+        st.subheader("Detail equipment")
+        detail_options = filtered["equipment_tag"].tolist()
+        selected_equipment = st.selectbox(
+            "Pilih equipment",
+            options=detail_options,
+            format_func=lambda tag: (
+                f"#{int(filtered.set_index('equipment_tag').loc[tag, 'risk_rank'])} • {tag} • "
+                f"{filtered.set_index('equipment_tag').loc[tag, 'risk_level']}"
+            ),
+            label_visibility="collapsed",
+        )
+        selected = filtered.set_index("equipment_tag").loc[selected_equipment]
+        status_color = RISK_COLORS[selected["risk_level"]]
+        detail_left, detail_right = st.columns([1, 1.25])
+        with detail_left:
+            st.markdown(
+                f'<span class="status-chip" style="background:{status_color}">'
+                f'{selected["risk_level"]}</span>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(f"### {selected_equipment}")
+            st.write(selected["equipment_name"])
+            st.caption(
+                f"{selected['equipment_type']} • {selected['plant']} • "
+                f"Criticality {selected['criticality']}"
+            )
+            st.info(selected["recommended_action"])
+            st.write(f"**Alasan status:** {selected['risk_reason']}")
+            if pd.notna(selected.get("largest_recent_deviation_signal")):
+                st.write(
+                    "**Deviasi konteks terbesar:** "
+                    f"{selected['largest_recent_deviation_signal']} "
+                    f"({selected['largest_recent_deviation_zscore']:+.2f}σ)"
+                )
+                st.caption("Deviasi merupakan konteks sensor, bukan penjelasan kausal model.")
+        with detail_right:
+            st.plotly_chart(
+                _score_chart(selected), width="stretch", key="equipment_score_chart"
+            )
+
+        signal_columns = [
+            ("feed_rate", "Feed rate"),
+            ("discharge_pressure", "Discharge pressure"),
+            ("vibration", "Vibration"),
+            ("temperature", "Temperature"),
+            ("motor_ampere", "Motor ampere"),
+            ("power_kw", "Power"),
+        ]
+        available_signals = [(column, label) for column, label in signal_columns if column in selected]
+        if available_signals:
+            st.caption("Kondisi sensor pada snapshot terakhir")
+            signal_metrics = st.columns(len(available_signals))
+            for container, (column, label) in zip(signal_metrics, available_signals, strict=True):
+                value = selected[column]
+                container.metric(label, "—" if pd.isna(value) else f"{value:,.2f}")
+
+    with equipment_tab:
+        st.subheader("Seluruh equipment terfilter")
+        st.caption(
+            "Skor model belum dikalibrasi sebagai probabilitas literal. Kedekatan threshold "
+            "membandingkan skor terhadap action threshold hasil rolling backtest."
+        )
+        _risk_table(filtered)
+        st.download_button(
+            "Unduh hasil terfilter (CSV)",
+            data=filtered.to_csv(index=False).encode("utf-8"),
+            file_name="caliber_equipment_risk.csv",
+            mime="text/csv",
+        )
+
+    with plant_tab:
+        st.subheader("Ringkasan risiko plant")
+        if filtered_plants.empty:
+            st.info("Tidak ada plant yang cocok dengan filter.")
+        else:
+            st.plotly_chart(
+                _plant_chart(filtered_plants), width="stretch", key="plant_summary_chart"
+            )
+            st.dataframe(
+                filtered_plants,
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "plant_rank": st.column_config.NumberColumn("Prioritas", format="%d"),
+                    "plant": st.column_config.TextColumn("Plant"),
+                    "equipment_count": st.column_config.NumberColumn("Equipment", format="%d"),
+                    "action_now_count": st.column_config.NumberColumn("Action now", format="%d"),
+                    "plan_maintenance_count": st.column_config.NumberColumn(
+                        "Plan maintenance", format="%d"
+                    ),
+                    "monitor_count": st.column_config.NumberColumn("Monitor", format="%d"),
+                    "normal_count": st.column_config.NumberColumn("Normal", format="%d"),
+                    "highest_risk_equipment": st.column_config.TextColumn("Prioritas utama"),
+                    "highest_risk_level": st.column_config.TextColumn("Status tertinggi"),
+                },
+            )
+
+    with model_tab:
+        st.subheader("Model dan kualitas data")
+        split_policy = summary.get("split_policy", {})
+        if split_policy.get("mode") in {
+            "chronological_percentage_search",
+            "chronological_percentage_search_with_rolling_calibration",
+        }:
+            st.markdown("#### Pembagian data terpilih")
+            split_columns = st.columns(3)
+            split_columns[0].metric(
+                "Training", f"{100 * float(split_policy['train_fraction']):.1f}%"
+            )
+            split_columns[1].metric(
+                "Validation", f"{100 * float(split_policy['validation_fraction']):.1f}%"
+            )
+            split_columns[2].metric(
+                "Test", f"{100 * float(split_policy['test_fraction']):.1f}%"
+            )
+            st.caption(
+                f"Kandidat {split_policy['selected_candidate']} • validation mulai "
+                f"{pd.Timestamp(split_policy['validation_start']).strftime('%d %b %Y %H:%M')} • "
+                f"test mulai {pd.Timestamp(split_policy['test_start']).strftime('%d %b %Y %H:%M')}"
+            )
+            st.info(
+                "Porsi dipilih menggunakan validation, lalu threshold dikalibrasi dengan "
+                "expanding-window rolling backtest. Metrik test tidak digunakan untuk pemilihan."
+            )
+            st.divider()
+        model_columns = st.columns(2)
+        for container, horizon in zip(model_columns, ("7d", "30d"), strict=True):
+            model = summary["models"][horizon]
+            with container:
+                st.markdown(f"#### Horizon {horizon}")
+                st.metric("Action threshold", f"{float(model['action_threshold']):.6f}")
+                st.metric("Warning threshold", f"{float(model['warning_threshold']):.6f}")
+                st.write(f"**Jumlah fitur:** {model['feature_count']}")
+                st.write(f"**Dilatih:** {pd.Timestamp(model['trained_at']).strftime('%d %b %Y %H:%M UTC')}")
+                calibration = model.get("threshold_calibration", {})
+                action_metrics = calibration.get("action", {}).get("metrics", {})
+                if action_metrics:
+                    st.caption(
+                        "Rolling backtest action threshold: "
+                        f"event recall {100 * float(action_metrics['event_recall']):.1f}% • "
+                        f"median lead {float(action_metrics['median_earliest_warning_days']):.1f} hari • "
+                        "false-alert day "
+                        f"{float(action_metrics['false_alert_days_per_equipment_month']):.2f}/equipment-bulan"
+                    )
+                warning_metrics = calibration.get("warning", {}).get("metrics", {})
+                if warning_metrics:
+                    st.caption(
+                        "Rolling backtest warning threshold: "
+                        f"event recall {100 * float(warning_metrics['event_recall']):.1f}% • "
+                        f"median lead {float(warning_metrics['median_earliest_warning_days']):.1f} hari • "
+                        "false-alert day "
+                        f"{float(warning_metrics['false_alert_days_per_equipment_month']):.2f}/equipment-bulan"
+                    )
+                for threshold_name, threshold_label in (
+                    ("action", "Action threshold"),
+                    ("warning", "Warning threshold"),
+                ):
+                    threshold_summary = calibration.get(threshold_name, {})
+                    if threshold_summary and not threshold_summary.get(
+                        "false_alert_limit_met", True
+                    ):
+                        actual = threshold_summary["metrics"][
+                            "false_alert_days_per_equipment_month"
+                        ]
+                        limit = threshold_summary["constraints"][
+                            "maximum_false_alert_days_per_equipment_month"
+                        ]
+                        st.warning(
+                            f"{threshold_label} memenuhi target event recall dan lead time, "
+                            f"tetapi false-alert day {actual:.2f} melampaui batas {limit:.2f} "
+                            "per equipment-bulan."
+                        )
+        st.divider()
+        label_quality = summary.get("label_quality", {})
+        if label_quality:
+            st.markdown("#### Audit label dan timestamp")
+            audit_columns = st.columns(4)
+            audit_columns[0].metric("Status audit", label_quality.get("quality_status", "—"))
+            audit_columns[1].metric("Failure event", int(label_quality.get("event_count", 0)))
+            audit_columns[2].metric(
+                "RCA terverifikasi", int(label_quality.get("rca_verified_event_count", 0))
+            )
+            audit_columns[3].metric(
+                "Baris future timestamp", int(label_quality.get("future_observation_rows", 0))
+            )
+            for warning in label_quality.get("warnings", []):
+                st.warning(warning)
+            for information in label_quality.get("information", []):
+                st.info(information)
+            st.divider()
+        persistence = summary.get("alert_persistence", {})
+        if persistence:
+            st.markdown("#### Persistence alert")
+            st.info(
+                "Status baru aktif bila skor melewati threshold sedikitnya "
+                f"{int(persistence.get('minimum_hits', 1))} kali dalam "
+                f"{int(persistence.get('lookback_hours', 1))} pembacaan terakhir"
+                + (
+                    " dan pembacaan terbaru juga masih melewati threshold."
+                    if persistence.get("require_latest", True)
+                    else "."
+                )
+            )
+            st.divider()
+        st.markdown(
+            """
+            - Pembagian dilakukan secara kronologis berdasarkan timestamp unik, bukan random per
+              baris.
+            - Purge gap 7/30 hari mencegah label menyeberangi batas antarsplit.
+            - Porsi dipilih dari validation; action dan warning threshold dikalibrasi dari rolling
+              backtest berdasarkan event recall, warning lead time, dan false-alert day.
+            - Skor belum dikalibrasi, sehingga tidak boleh dibaca sebagai persentase kemungkinan
+              kegagalan secara literal.
+            - Keputusan maintenance tetap memerlukan pemeriksaan engineer dan konteks operasi.
+            """
+        )
+        st.caption(
+            f"Reporting dibuat {pd.Timestamp(summary['generated_at']).strftime('%d %b %Y %H:%M UTC')}"
+        )
+
+
 st.markdown(
-    f"""
+    """
     <div class="caliber-header">
-      <div class="caliber-kicker">ASSET INTELLIGENCE • CALIBER 2026</div>
-      <div class="caliber-title">Predictive Maintenance</div>
-      <p class="caliber-subtitle">Prioritas inspeksi berbasis risiko kegagalan 7 dan 30 hari •
-      Snapshot {snapshot.strftime('%d %b %Y %H:%M')}</p>
+      <div class="caliber-kicker">UNIFIED MANUFACTURING INTELLIGENCE • CALIBER 2026</div>
+      <div class="caliber-title">CALIBER Dashboard</div>
+      <p class="caliber-subtitle">Descriptive analytics dari Supabase, dan prioritas inspeksi
+      berbasis prediksi risiko kegagalan.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-source_status = summary["source_time_status"]
-source_age = float(summary.get("source_age_hours", 0))
-if source_status == "SYNTHETIC_DEMO_SNAPSHOT":
-    st.info(
-        summary.get(
-            "synthetic_snapshot_note",
-            "Snapshot ini menggunakan data sintetis untuk simulasi dan bukan telemetry real-time.",
-        )
-    )
-elif source_status == "FUTURE_SOURCE_TIMESTAMP":
-    st.warning(
-        f"Timestamp sumber berada {abs(source_age):.1f} jam di masa depan. "
-        "Verifikasi timezone atau tanggal data Supabase sebelum menggunakan alert untuk keputusan operasi."
-    )
-elif source_status == "STALE_SOURCE_TIMESTAMP":
-    st.warning(
-        f"Data sumber terakhir berusia {source_age:.1f} jam. Jalankan refresh pipeline sebelum "
-        "menggunakan rekomendasi."
-    )
-else:
-    st.success(f"Data sumber terkini • usia snapshot {max(source_age, 0):.1f} jam")
-
-if filtered.empty:
-    st.info("Tidak ada equipment yang cocok dengan filter saat ini.")
-    st.stop()
-
-urgent_count = int(
-    filtered["risk_level"].isin(["ACTION_NOW", "PLAN_MAINTENANCE"]).sum()
-)
-kpi_columns = st.columns(6)
-kpi_columns[0].metric("Equipment", len(filtered), delta=f"dari {len(equipment_risk)}")
-kpi_columns[1].metric("Perlu tindakan", urgent_count)
-kpi_columns[2].metric("Monitor", int(filtered["risk_level"].eq("MONITOR").sum()))
-kpi_columns[3].metric("Alert 7 hari", int(filtered["alert_7d"].sum()))
-kpi_columns[4].metric("Alert 30 hari", int(filtered["alert_30d"].sum()))
-kpi_columns[5].metric("Plant terpilih", int(filtered["plant"].nunique()))
-
-overview_tab, equipment_tab, plant_tab, model_tab = st.tabs(
-    ["Ringkasan", "Equipment", "Plant", "Model & data"]
+descriptive_tab, predictive_tab = st.tabs(
+    ["📊 Descriptive Analytics", "🔧 Predictive Maintenance"]
 )
 
-with overview_tab:
-    chart_left, chart_right = st.columns([0.9, 1.4])
-    with chart_left:
-        st.subheader("Distribusi status")
-        st.plotly_chart(
-            _risk_donut(filtered), width="stretch", key="overview_risk_donut"
-        )
-    with chart_right:
-        st.subheader("Profil risiko per plant")
-        if filtered_plants.empty:
-            st.info("Tidak ada ringkasan plant untuk filter ini.")
-        else:
-            st.plotly_chart(
-                _plant_chart(filtered_plants),
-                width="stretch",
-                key="overview_plant_chart",
-            )
+with descriptive_tab:
+    try:
+        equipment_dim, plants_dim, parameters_dim = queries.load_dimensions()
+        min_date, max_date = queries.date_bounds()
+    except Exception as exc:  # noqa: BLE001 - surfaced directly to the operator
+        st.error(f"Gagal terhubung ke Supabase: {exc}")
+        st.info("Pastikan SUPABASE_DB_URL sudah diisi di file .env (lihat .env.example).")
+        st.stop()
 
-    st.subheader("Antrian prioritas")
-    st.markdown(
-        '<p class="section-caption">Urutan berdasarkan urgensi dan kedekatan action threshold.</p>',
-        unsafe_allow_html=True,
-    )
-    priority = filtered.loc[filtered["risk_level"].ne("NORMAL")]
-    if priority.empty:
-        st.success("Tidak ada equipment yang memerlukan tindakan atau monitoring tambahan.")
-    else:
-        _risk_table(priority)
+    descriptive_filters = render_sidebar_filters(equipment_dim, plants_dim, min_date, max_date)
+    render_descriptive_tab(descriptive_filters, plants_dim, parameters_dim)
 
-    st.subheader("Detail equipment")
-    detail_options = filtered["equipment_tag"].tolist()
-    selected_equipment = st.selectbox(
-        "Pilih equipment",
-        options=detail_options,
-        format_func=lambda tag: (
-            f"#{int(filtered.set_index('equipment_tag').loc[tag, 'risk_rank'])} • {tag} • "
-            f"{filtered.set_index('equipment_tag').loc[tag, 'risk_level']}"
-        ),
-        label_visibility="collapsed",
-    )
-    selected = filtered.set_index("equipment_tag").loc[selected_equipment]
-    status_color = RISK_COLORS[selected["risk_level"]]
-    detail_left, detail_right = st.columns([1, 1.25])
-    with detail_left:
-        st.markdown(
-            f'<span class="status-chip" style="background:{status_color}">'
-            f'{selected["risk_level"]}</span>',
-            unsafe_allow_html=True,
-        )
-        st.markdown(f"### {selected_equipment}")
-        st.write(selected["equipment_name"])
-        st.caption(
-            f"{selected['equipment_type']} • {selected['plant']} • "
-            f"Criticality {selected['criticality']}"
-        )
-        st.info(selected["recommended_action"])
-        st.write(f"**Alasan status:** {selected['risk_reason']}")
-        if pd.notna(selected.get("largest_recent_deviation_signal")):
-            st.write(
-                "**Deviasi konteks terbesar:** "
-                f"{selected['largest_recent_deviation_signal']} "
-                f"({selected['largest_recent_deviation_zscore']:+.2f}σ)"
-            )
-            st.caption("Deviasi merupakan konteks sensor, bukan penjelasan kausal model.")
-    with detail_right:
-        st.plotly_chart(
-            _score_chart(selected), width="stretch", key="equipment_score_chart"
-        )
-
-    signal_columns = [
-        ("feed_rate", "Feed rate"),
-        ("discharge_pressure", "Discharge pressure"),
-        ("vibration", "Vibration"),
-        ("temperature", "Temperature"),
-        ("motor_ampere", "Motor ampere"),
-        ("power_kw", "Power"),
-    ]
-    available_signals = [(column, label) for column, label in signal_columns if column in selected]
-    if available_signals:
-        st.caption("Kondisi sensor pada snapshot terakhir")
-        signal_metrics = st.columns(len(available_signals))
-        for container, (column, label) in zip(signal_metrics, available_signals, strict=True):
-            value = selected[column]
-            container.metric(label, "—" if pd.isna(value) else f"{value:,.2f}")
-
-with equipment_tab:
-    st.subheader("Seluruh equipment terfilter")
-    st.caption(
-        "Skor model belum dikalibrasi sebagai probabilitas literal. Kedekatan threshold "
-        "membandingkan skor terhadap action threshold hasil rolling backtest."
-    )
-    _risk_table(filtered)
-    st.download_button(
-        "Unduh hasil terfilter (CSV)",
-        data=filtered.to_csv(index=False).encode("utf-8"),
-        file_name="caliber_equipment_risk.csv",
-        mime="text/csv",
-    )
-
-with plant_tab:
-    st.subheader("Ringkasan risiko plant")
-    if filtered_plants.empty:
-        st.info("Tidak ada plant yang cocok dengan filter.")
-    else:
-        st.plotly_chart(
-            _plant_chart(filtered_plants), width="stretch", key="plant_summary_chart"
-        )
-        st.dataframe(
-            filtered_plants,
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "plant_rank": st.column_config.NumberColumn("Prioritas", format="%d"),
-                "plant": st.column_config.TextColumn("Plant"),
-                "equipment_count": st.column_config.NumberColumn("Equipment", format="%d"),
-                "action_now_count": st.column_config.NumberColumn("Action now", format="%d"),
-                "plan_maintenance_count": st.column_config.NumberColumn(
-                    "Plan maintenance", format="%d"
-                ),
-                "monitor_count": st.column_config.NumberColumn("Monitor", format="%d"),
-                "normal_count": st.column_config.NumberColumn("Normal", format="%d"),
-                "highest_risk_equipment": st.column_config.TextColumn("Prioritas utama"),
-                "highest_risk_level": st.column_config.TextColumn("Status tertinggi"),
-            },
-        )
-
-with model_tab:
-    st.subheader("Model dan kualitas data")
-    split_policy = summary.get("split_policy", {})
-    if split_policy.get("mode") in {
-        "chronological_percentage_search",
-        "chronological_percentage_search_with_rolling_calibration",
-    }:
-        st.markdown("#### Pembagian data terpilih")
-        split_columns = st.columns(3)
-        split_columns[0].metric(
-            "Training", f"{100 * float(split_policy['train_fraction']):.1f}%"
-        )
-        split_columns[1].metric(
-            "Validation", f"{100 * float(split_policy['validation_fraction']):.1f}%"
-        )
-        split_columns[2].metric(
-            "Test", f"{100 * float(split_policy['test_fraction']):.1f}%"
-        )
-        st.caption(
-            f"Kandidat {split_policy['selected_candidate']} • validation mulai "
-            f"{pd.Timestamp(split_policy['validation_start']).strftime('%d %b %Y %H:%M')} • "
-            f"test mulai {pd.Timestamp(split_policy['test_start']).strftime('%d %b %Y %H:%M')}"
-        )
-        st.info(
-            "Porsi dipilih menggunakan validation, lalu threshold dikalibrasi dengan "
-            "expanding-window rolling backtest. Metrik test tidak digunakan untuk pemilihan."
-        )
-        st.divider()
-    model_columns = st.columns(2)
-    for container, horizon in zip(model_columns, ("7d", "30d"), strict=True):
-        model = summary["models"][horizon]
-        with container:
-            st.markdown(f"#### Horizon {horizon}")
-            st.metric("Action threshold", f"{float(model['action_threshold']):.6f}")
-            st.metric("Warning threshold", f"{float(model['warning_threshold']):.6f}")
-            st.write(f"**Jumlah fitur:** {model['feature_count']}")
-            st.write(f"**Dilatih:** {pd.Timestamp(model['trained_at']).strftime('%d %b %Y %H:%M UTC')}")
-            calibration = model.get("threshold_calibration", {})
-            action_metrics = calibration.get("action", {}).get("metrics", {})
-            if action_metrics:
-                st.caption(
-                    "Rolling backtest action threshold: "
-                    f"event recall {100 * float(action_metrics['event_recall']):.1f}% • "
-                    f"median lead {float(action_metrics['median_earliest_warning_days']):.1f} hari • "
-                    "false-alert day "
-                    f"{float(action_metrics['false_alert_days_per_equipment_month']):.2f}/equipment-bulan"
-                )
-            warning_metrics = calibration.get("warning", {}).get("metrics", {})
-            if warning_metrics:
-                st.caption(
-                    "Rolling backtest warning threshold: "
-                    f"event recall {100 * float(warning_metrics['event_recall']):.1f}% • "
-                    f"median lead {float(warning_metrics['median_earliest_warning_days']):.1f} hari • "
-                    "false-alert day "
-                    f"{float(warning_metrics['false_alert_days_per_equipment_month']):.2f}/equipment-bulan"
-                )
-            for threshold_name, threshold_label in (
-                ("action", "Action threshold"),
-                ("warning", "Warning threshold"),
-            ):
-                threshold_summary = calibration.get(threshold_name, {})
-                if threshold_summary and not threshold_summary.get(
-                    "false_alert_limit_met", True
-                ):
-                    actual = threshold_summary["metrics"][
-                        "false_alert_days_per_equipment_month"
-                    ]
-                    limit = threshold_summary["constraints"][
-                        "maximum_false_alert_days_per_equipment_month"
-                    ]
-                    st.warning(
-                        f"{threshold_label} memenuhi target event recall dan lead time, "
-                        f"tetapi false-alert day {actual:.2f} melampaui batas {limit:.2f} "
-                        "per equipment-bulan."
-                    )
-    st.divider()
-    label_quality = summary.get("label_quality", {})
-    if label_quality:
-        st.markdown("#### Audit label dan timestamp")
-        audit_columns = st.columns(4)
-        audit_columns[0].metric("Status audit", label_quality.get("quality_status", "—"))
-        audit_columns[1].metric("Failure event", int(label_quality.get("event_count", 0)))
-        audit_columns[2].metric(
-            "RCA terverifikasi", int(label_quality.get("rca_verified_event_count", 0))
-        )
-        audit_columns[3].metric(
-            "Baris future timestamp", int(label_quality.get("future_observation_rows", 0))
-        )
-        for warning in label_quality.get("warnings", []):
-            st.warning(warning)
-        for information in label_quality.get("information", []):
-            st.info(information)
-        st.divider()
-    persistence = summary.get("alert_persistence", {})
-    if persistence:
-        st.markdown("#### Persistence alert")
-        st.info(
-            "Status baru aktif bila skor melewati threshold sedikitnya "
-            f"{int(persistence.get('minimum_hits', 1))} kali dalam "
-            f"{int(persistence.get('lookback_hours', 1))} pembacaan terakhir"
-            + (
-                " dan pembacaan terbaru juga masih melewati threshold."
-                if persistence.get("require_latest", True)
-                else "."
-            )
-        )
-        st.divider()
-    st.markdown(
-        """
-        - Pembagian dilakukan secara kronologis berdasarkan timestamp unik, bukan random per
-          baris.
-        - Purge gap 7/30 hari mencegah label menyeberangi batas antarsplit.
-        - Porsi dipilih dari validation; action dan warning threshold dikalibrasi dari rolling
-          backtest berdasarkan event recall, warning lead time, dan false-alert day.
-        - Skor belum dikalibrasi, sehingga tidak boleh dibaca sebagai persentase kemungkinan
-          kegagalan secara literal.
-        - Keputusan maintenance tetap memerlukan pemeriksaan engineer dan konteks operasi.
-        """
-    )
-    st.caption(
-        f"Reporting dibuat {pd.Timestamp(summary['generated_at']).strftime('%d %b %Y %H:%M UTC')}"
-    )
+with predictive_tab:
+    render_predictive_tab()
 
 st.divider()
 st.caption(
-    "CALIBER Asset Intelligence • Dashboard hanya membaca artefak reporting; kredensial "
-    "Supabase dan model tidak diekspos ke antarmuka."
+    "CALIBER Asset Intelligence • Descriptive analytics membaca langsung dari Supabase; "
+    "Predictive Maintenance membaca artefak reporting hasil pipeline. Kredensial Supabase "
+    "tidak diekspos ke antarmuka."
 )
+
+
