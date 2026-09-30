@@ -132,43 +132,61 @@ def incident_zoom_chart(df: pd.DataFrame, failure_dt) -> go.Figure:
 def ranking_bar(
     df: pd.DataFrame, x_col: str, y_col: str, x_label: str, color: str = CATEGORICAL[0],
 ) -> go.Figure:
-    ordered = df.sort_values(x_col, ascending=True)
+    ordered = df.sort_values(x_col, ascending=False)
     figure = go.Figure(
         go.Bar(
-            x=ordered[x_col], y=ordered[y_col], orientation="h",
+            x=ordered[y_col], y=ordered[x_col],
             marker=dict(color=color),
             text=ordered[x_col].round(1),
             texttemplate="%{text:.1f}",
             textposition="outside",
-            hovertemplate="%{y}<br>" + x_label + ": %{x:.1f}<extra></extra>",
+            hovertemplate="%{x}<br>" + x_label + ": %{y:.1f}<extra></extra>",
         )
     )
     figure.update_layout(
-        _layout(height=max(260, 26 * len(ordered)), xaxis_title=x_label, yaxis_title=None)
+        _layout(height=380, xaxis_title=None, yaxis_title=x_label)
     )
+    figure.update_xaxes(tickangle=-45)
     return figure
 
 
 # --------------------------------------------------------------- 2. Incident
 def bad_actor_bar(df: pd.DataFrame) -> go.Figure:
-    totals = df.groupby("equipment_tag")["n"].sum().sort_values(ascending=True)
+    totals = (
+        df.groupby("equipment_tag")
+        .agg(total_downtime=("total_downtime", "sum"), n=("n", "sum"))
+        .sort_values("total_downtime", ascending=False)
+    )
     figure = go.Figure(
         go.Bar(
-            y=totals.index, x=totals.values, orientation="h", marker=dict(color=CATEGORICAL[0]),
-            hovertemplate="%{y}<br>Jumlah insiden: %{x}<extra></extra>",
+            x=totals.index, y=totals["total_downtime"], marker=dict(color=CATEGORICAL[1]),
+            text=totals["total_downtime"].round(1),
+            texttemplate="%{text:.1f}",
+            textposition="outside",
+            customdata=totals["n"],
+            hovertemplate=(
+                "%{x}<br>Total downtime: %{y:.1f} jam<br>Jumlah insiden: %{customdata}<extra></extra>"
+            ),
         )
     )
     figure.update_layout(
-        _layout(height=max(260, 26 * len(totals)), xaxis_title="Jumlah insiden", yaxis_title=None)
+        _layout(height=380, xaxis_title=None, yaxis_title="Total downtime (jam)")
     )
+    figure.update_xaxes(tickangle=-45)
     return figure
 
 
 def incident_timeline_scatter(df: pd.DataFrame) -> go.Figure:
+    downtime = df["downtime_hours"].fillna(0)
+    max_downtime = downtime.max()
+    sizes = 8 + (downtime / max_downtime * 34 if max_downtime > 0 else 0)
     figure = go.Figure(
         go.Scatter(
             x=df["failure_date"], y=df["equipment_tag"], mode="markers",
-            marker=dict(size=10, color=CATEGORICAL[0], line=dict(width=1, color="white")),
+            marker=dict(
+                size=sizes, sizemode="diameter",
+                color=CATEGORICAL[0], line=dict(width=1, color="white"),
+            ),
             customdata=df[["dominant_failure_mode", "downtime_hours"]],
             hovertemplate=(
                 "%{y}<br>%{x|%d %b %Y}<br>Mode: %{customdata[0]}<br>"
@@ -222,25 +240,31 @@ def health_heatmap_chart(df: pd.DataFrame) -> go.Figure:
 
 
 def parameter_trend_chart(df: pd.DataFrame, alarm_value, trip_value, param_name: str) -> go.Figure:
+    def _status(v: float) -> str:
+        if pd.notna(trip_value) and v >= trip_value:
+            return "TRIP"
+        if pd.notna(alarm_value) and v >= alarm_value:
+            return "ALARM"
+        return "NORMAL"
+
     figure = go.Figure()
     figure.add_scatter(
         x=df["date"], y=df["value"], mode="lines+markers", name=param_name,
         line=dict(color=CATEGORICAL[0], width=2), marker=dict(size=6),
-        hovertemplate="%{x}<br>" + param_name + ": %{y:.2f}<extra></extra>",
+        customdata=[_status(v) for v in df["value"]],
+        hovertemplate="%{x}<br>" + param_name + ": %{y:.2f}<br>Status: %{customdata}<extra></extra>",
     )
     if pd.notna(alarm_value):
-        figure.add_hline(y=alarm_value, line=dict(color=STATUS["warning"], width=2, dash="dash"))
-        figure.add_annotation(
-            x=1, xref="paper", y=alarm_value, showarrow=False, text="Alarm",
-            font=dict(color=STATUS["warning"], size=11), xanchor="left",
+        figure.add_scatter(
+            x=df["date"], y=[alarm_value] * len(df), mode="lines", name="Alarm",
+            line=dict(color=STATUS["warning"], width=2, dash="dash"), hoverinfo="skip",
         )
     if pd.notna(trip_value):
-        figure.add_hline(y=trip_value, line=dict(color=STATUS["critical"], width=2, dash="dash"))
-        figure.add_annotation(
-            x=1, xref="paper", y=trip_value, showarrow=False, text="Trip",
-            font=dict(color=STATUS["critical"], size=11), xanchor="left",
+        figure.add_scatter(
+            x=df["date"], y=[trip_value] * len(df), mode="lines", name="Trip",
+            line=dict(color=STATUS["critical"], width=2, dash="dash"), hoverinfo="skip",
         )
-    figure.update_layout(_layout(yaxis_title=param_name))
+    figure.update_layout(_layout(show_legend=True, yaxis_title=param_name))
     return figure
 
 
@@ -255,24 +279,36 @@ def bullet_gauge(value: float, alarm_value, trip_value, param_name: str) -> go.F
                            color="#fff3d6"))
     if pd.notna(trip_value):
         steps.append(dict(range=[trip_value, reasonable_max], color="#fbe4e4"))
+
+    tickvals = [0, reasonable_max]
+    ticktext = ["0", f"{reasonable_max:.1f}"]
+    if pd.notna(alarm_value):
+        tickvals.append(alarm_value)
+        ticktext.append(f"A: {alarm_value:.1f}")
+    if pd.notna(trip_value):
+        tickvals.append(trip_value)
+        ticktext.append(f"T: {trip_value:.1f}")
+    order = sorted(range(len(tickvals)), key=lambda i: tickvals[i])
+    tickvals = [tickvals[i] for i in order]
+    ticktext = [ticktext[i] for i in order]
+
     figure = go.Figure(
         go.Indicator(
             mode="gauge+number",
             value=value,
             title=dict(text=param_name, font=dict(size=14, color=INK)),
             gauge=dict(
-                axis=dict(range=[0, reasonable_max], tickcolor=MUTED),
+                axis=dict(
+                    range=[0, reasonable_max], tickcolor=MUTED,
+                    tickmode="array", tickvals=tickvals, ticktext=ticktext, tickfont=dict(size=10),
+                ),
                 bar=dict(color=CATEGORICAL[0], thickness=0.35),
                 steps=steps,
-                threshold=dict(
-                    line=dict(color=STATUS["critical"], width=3),
-                    value=trip_value if pd.notna(trip_value) else reasonable_max,
-                ),
             ),
             number=dict(font=dict(color=INK, size=28)),
         )
     )
-    figure.update_layout(_layout(height=220))
+    figure.update_layout(_layout(height=240, margin=dict(l=30, r=30, t=50, b=20)))
     return figure
 
 
@@ -286,19 +322,30 @@ def pareto_chart(df: pd.DataFrame) -> go.Figure:
     cumulative_pct = share_pct.cumsum()
     figure = go.Figure()
     figure.add_bar(
-        x=ordered["equipment_tag"], y=share_pct, name="Share downtime (%)",
+        x=ordered["equipment_tag"], y=ordered["total_downtime"], name="Downtime (jam)",
         marker=dict(color=CATEGORICAL[0]),
-        customdata=ordered["total_downtime"],
-        hovertemplate="%{x}<br>Share: %{y:.1f}%<br>Downtime: %{customdata:.1f} jam<extra></extra>",
+        customdata=share_pct,
+        hovertemplate="%{x}<br>Downtime: %{y:.1f} jam<br>Share: %{customdata:.1f}%<extra></extra>",
     )
     figure.add_scatter(
         x=ordered["equipment_tag"], y=cumulative_pct, name="Kumulatif (%)", mode="lines+markers",
         line=dict(color=CATEGORICAL[1], width=2), marker=dict(size=7),
+        yaxis="y2",
         hovertemplate="%{x}<br>Kumulatif: %{y:.1f}%<extra></extra>",
     )
-    figure.add_hline(y=80, line=dict(color=MUTED, width=1, dash="dot"))
+    figure.add_scatter(
+        x=ordered["equipment_tag"], y=[80] * len(ordered), name="Target 80%", mode="lines",
+        line=dict(color=MUTED, width=1, dash="dot"), yaxis="y2", hoverinfo="skip",
+    )
     figure.update_layout(
-        _layout(show_legend=True, yaxis_title="% dari total downtime", yaxis_range=[0, 105])
+        _layout(
+            show_legend=True, yaxis_title="Downtime (jam)",
+            yaxis2=dict(
+                overlaying="y", side="right", title="Kumulatif (%)", range=[0, 105],
+                tickmode="array", tickvals=[0, 20, 40, 60, 80, 100],
+                showgrid=False, zeroline=False, linecolor=AXIS, tickfont=dict(color=MUTED),
+            ),
+        )
     )
     return figure
 

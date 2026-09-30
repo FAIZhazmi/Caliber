@@ -9,6 +9,28 @@ from dashboard import charts, queries
 from dashboard.filters import DescriptiveFilters
 
 
+def _clear_if_invalid(key: str, valid_options) -> None:
+    """Drop a selectbox's stored value once it falls outside the current filter scope.
+
+    Streamlit otherwise keeps the old session-state value across reruns and either
+    shows a stale selection or crashes once it's no longer in `options`.
+    """
+    if key in st.session_state and st.session_state[key] not in valid_options:
+        del st.session_state[key]
+
+
+def _prune_multiselect(key: str, valid_options) -> None:
+    if key not in st.session_state:
+        return
+    valid_set = set(valid_options)
+    current = st.session_state[key]
+    pruned = [v for v in current if v in valid_set]
+    if not pruned:
+        del st.session_state[key]
+    elif pruned != current:
+        st.session_state[key] = pruned
+
+
 def _fmt(value: float, suffix: str = "", decimals: int = 1) -> str:
     if value is None or pd.isna(value):
         return "—"
@@ -59,24 +81,36 @@ def _production_section(filters: DescriptiveFilters) -> None:
         return
 
     st.markdown("##### Rate & Downtime Overlay")
-    left, right = st.columns([2, 1])
-    with right:
-        equipment_tag = st.selectbox("Equipment", options=sorted(tags), key="prod_ts_equipment")
-        rate_column = st.radio(
-            "Laju", options=["feed_rate", "plant_rate"], horizontal=True, key="prod_ts_metric"
-        )
-    with left:
-        daily_rate = queries.production_daily_rate(equipment_tag, filters.date_from, filters.date_to)
-        equipment_incidents = queries.equipment_incidents(
-            equipment_tag, filters.date_from, filters.date_to
-        )
-        if daily_rate.empty:
-            st.plotly_chart(charts.empty_state("Tidak ada data pada rentang ini."), width="stretch")
-        else:
-            st.plotly_chart(
-                charts.rate_downtime_overlay(daily_rate, equipment_incidents, rate_column, rate_column),
-                width="stretch", key="prod_ts_chart",
-            )
+    sorted_tags = sorted(tags)
+    _clear_if_invalid("prod_ts_equipment", sorted_tags)
+    equipment_tag = st.selectbox("Equipment", options=sorted_tags, key="prod_ts_equipment")
+
+    daily_rate = queries.production_daily_rate(equipment_tag, filters.date_from, filters.date_to)
+    equipment_incidents = queries.equipment_incidents(
+        equipment_tag, filters.date_from, filters.date_to
+    )
+    chart_scope = f"{equipment_tag}_{filters.date_from}_{filters.date_to}"
+
+    feed_col, plant_col = st.columns(2)
+    for column, label, container in (
+        ("feed_rate", "feed_rate", feed_col),
+        ("plant_rate", "plant_rate", plant_col),
+    ):
+        with container:
+            if daily_rate.empty:
+                st.plotly_chart(
+                    charts.empty_state("Tidak ada data pada rentang ini."),
+                    width="stretch", key=f"prod_ts_chart_empty_{column}_{chart_scope}",
+                )
+            else:
+                st.plotly_chart(
+                    charts.rate_downtime_overlay(daily_rate, equipment_incidents, column, label),
+                    width="stretch", key=f"prod_ts_chart_{column}_{chart_scope}",
+                )
+    st.caption(
+        f"Data: {equipment_tag} • {filters.date_from:%d %b %Y} – {filters.date_to:%d %b %Y} "
+        f"• {len(daily_rate)} titik harian"
+    )
     st.caption(
         "Area merah menandai hari dengan insiden; marker segitiga menampilkan downtime (jam) "
         "dan failure mode saat hover."
@@ -84,15 +118,16 @@ def _production_section(filters: DescriptiveFilters) -> None:
 
     st.divider()
     st.markdown("##### Power Consumption Trend")
-    default_selection = sorted(tags)[: min(6, len(tags))]
+    _prune_multiselect("prod_power_equipment", sorted_tags)
+    default_selection = sorted_tags[: min(6, len(sorted_tags))]
     power_tags = st.multiselect(
-        "Equipment (maks. 8)", options=sorted(tags), default=default_selection,
+        "Equipment (maks. 8)", options=sorted_tags, default=default_selection,
         max_selections=8, key="prod_power_equipment",
     )
     if power_tags:
         power_df = queries.power_trend(tuple(power_tags), filters.date_from, filters.date_to)
         if power_df.empty:
-            st.plotly_chart(charts.empty_state("Tidak ada data."), width="stretch")
+            st.plotly_chart(charts.empty_state("Tidak ada data."), width="stretch", key="prod_power_chart_empty")
         else:
             st.plotly_chart(charts.power_trend_lines(power_df), width="stretch", key="prod_power_chart")
 
@@ -122,7 +157,10 @@ def _production_section(filters: DescriptiveFilters) -> None:
             row["equipment_tag"], row["failure_date"], hours_before, hours_after
         )
         if zoom.empty:
-            st.plotly_chart(charts.empty_state("Tidak ada data hourly di window ini."), width="stretch")
+            st.plotly_chart(
+                charts.empty_state("Tidak ada data hourly di window ini."),
+                width="stretch", key="prod_zoom_chart_empty",
+            )
         else:
             st.plotly_chart(
                 charts.incident_zoom_chart(zoom, row["failure_date"]),
@@ -133,7 +171,9 @@ def _production_section(filters: DescriptiveFilters) -> None:
     st.markdown("##### Availability Ranking")
     availability = queries.availability_ranking(tags, filters.date_from, filters.date_to)
     if availability.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada data."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada data."), width="stretch", key="prod_availability_chart_empty"
+        )
     else:
         st.plotly_chart(
             charts.ranking_bar(availability, "availability_pct", "equipment_tag", "Availability (%)"),
@@ -150,7 +190,9 @@ def _incident_section(filters: DescriptiveFilters) -> None:
     st.markdown("##### Bad Actor Ranking")
     bad_actor = queries.bad_actor_ranking(tags, filters.date_from, filters.date_to)
     if bad_actor.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch", key="inc_bad_actor_empty"
+        )
     else:
         st.plotly_chart(charts.bad_actor_bar(bad_actor), width="stretch", key="inc_bad_actor")
 
@@ -158,7 +200,9 @@ def _incident_section(filters: DescriptiveFilters) -> None:
     st.markdown("##### Incident Timeline")
     timeline = queries.incident_timeline(tags, filters.date_from, filters.date_to)
     if timeline.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch", key="inc_timeline_empty"
+        )
     else:
         st.plotly_chart(charts.incident_timeline_scatter(timeline), width="stretch", key="inc_timeline")
 
@@ -166,7 +210,10 @@ def _incident_section(filters: DescriptiveFilters) -> None:
     st.markdown("##### Downtime by Failure Mode")
     by_mode = queries.downtime_by_failure_mode(tags, filters.date_from, filters.date_to)
     if by_mode.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada insiden pada rentang ini."),
+            width="stretch", key="inc_failure_mode_empty",
+        )
     else:
         st.plotly_chart(charts.failure_mode_bar(by_mode), width="stretch", key="inc_failure_mode")
 
@@ -180,54 +227,64 @@ def _equipment_performance_section(filters: DescriptiveFilters, parameters_df: p
     st.markdown("##### Equipment Health Heatmap")
     heatmap_df = queries.health_heatmap(tags, filters.date_from, filters.date_to)
     if heatmap_df.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada data kondisi pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada data kondisi pada rentang ini."),
+            width="stretch", key="eq_heatmap_empty",
+        )
     else:
         st.plotly_chart(charts.health_heatmap_chart(heatmap_df), width="stretch", key="eq_heatmap")
 
     st.divider()
     st.markdown("##### Parameter vs Threshold Trend")
-    param_left, param_right = st.columns(2)
-    with param_left:
-        param_equipment = st.selectbox("Equipment", options=sorted(tags), key="eq_param_equipment")
+    _clear_if_invalid("eq_param_equipment", sorted(tags))
+    param_equipment = st.selectbox("Equipment", options=sorted(tags), key="eq_param_equipment")
     param_options = parameters_df[parameters_df["equipment_tag"] == param_equipment]
-    with param_right:
-        if param_options.empty:
-            st.info("Parameter tidak tersedia untuk equipment ini.")
-            parameter_no = None
-        else:
-            parameter_label = st.selectbox(
-                "Parameter",
-                options=param_options["parameter_no"].tolist(),
-                format_func=lambda no: param_options.set_index("parameter_no").loc[no, "parameter_name"],
-                key="eq_param_no",
-            )
-            parameter_no = int(parameter_label)
-    if parameter_no is not None:
-        trend = queries.parameter_trend(param_equipment, parameter_no, filters.date_from, filters.date_to)
-        thresholds = param_options.set_index("parameter_no").loc[parameter_no]
-        param_name = thresholds["parameter_name"]
-        if trend.empty:
-            st.plotly_chart(charts.empty_state("Tidak ada data pada rentang ini."), width="stretch")
-        else:
-            st.plotly_chart(
-                charts.parameter_trend_chart(
-                    trend, thresholds["alarm_value"], thresholds["trip_value"], param_name
-                ),
-                width="stretch", key="eq_param_chart",
-            )
 
-        st.markdown("##### Current Status Gauge")
-        latest = queries.latest_reading(param_equipment, parameter_no)
-        if latest.empty or pd.isna(latest.iloc[0]["value"]):
-            st.info("Belum ada reading terbaru.")
-        else:
-            st.plotly_chart(
-                charts.bullet_gauge(
-                    latest.iloc[0]["value"], thresholds["alarm_value"], thresholds["trip_value"],
-                    param_name,
-                ),
-                width="stretch", key="eq_bullet_chart",
+    if param_options.empty:
+        st.info("Parameter tidak tersedia untuk equipment ini.")
+    else:
+        param_rows = list(param_options.itertuples())
+
+        for row in param_rows:
+            parameter_no = int(row.parameter_no)
+            param_name = row.parameter_name
+            st.markdown(f"###### {param_name}")
+            trend = queries.parameter_trend(
+                param_equipment, parameter_no, filters.date_from, filters.date_to
             )
+            if trend.empty:
+                st.plotly_chart(
+                    charts.empty_state("Tidak ada data pada rentang ini."),
+                    width="stretch", key=f"eq_param_chart_empty_{parameter_no}",
+                )
+            else:
+                st.plotly_chart(
+                    charts.parameter_trend_chart(trend, row.alarm_value, row.trip_value, param_name),
+                    width="stretch", key=f"eq_param_chart_{parameter_no}",
+                )
+
+        st.divider()
+        st.markdown("##### Current Status Gauge")
+        gauge_cols = st.columns(len(param_rows))
+        for row, col in zip(param_rows, gauge_cols):
+            parameter_no = int(row.parameter_no)
+            param_name = row.parameter_name
+            with col:
+                latest = queries.latest_reading(param_equipment, parameter_no)
+                if latest.empty or pd.isna(latest.iloc[0]["value"]):
+                    st.info("Belum ada reading terbaru.")
+                    continue
+                value = latest.iloc[0]["value"]
+                st.plotly_chart(
+                    charts.bullet_gauge(value, row.alarm_value, row.trip_value, param_name),
+                    width="stretch", key=f"eq_bullet_chart_{parameter_no}",
+                )
+                if pd.notna(row.trip_value) and value >= row.trip_value:
+                    st.error("Kondisi: TRIP")
+                elif pd.notna(row.alarm_value) and value >= row.alarm_value:
+                    st.warning("Kondisi: ALARM")
+                else:
+                    st.success("Kondisi: NORMAL")
 
 
 def _downtime_section(filters: DescriptiveFilters) -> None:
@@ -239,16 +296,20 @@ def _downtime_section(filters: DescriptiveFilters) -> None:
     st.markdown("##### Downtime Pareto")
     pareto_df = queries.downtime_pareto(tags, filters.date_from, filters.date_to)
     if pareto_df.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch", key="dt_pareto_empty"
+        )
     else:
-        st.plotly_chart(charts.pareto_chart(pareto_df), width="stretch", key="dt_pareto")
+        st.plotly_chart(charts.pareto_chart(pareto_df), width="stretch", key="dt_pareto_v2")
     st.caption("Bar & garis kumulatif dinyatakan dalam % dari total downtime pada sumbu yang sama.")
 
     st.divider()
     st.markdown("##### Downtime by Plant")
     by_plant = queries.downtime_by_plant(tags, filters.date_from, filters.date_to)
     if by_plant.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch", key="dt_by_plant_empty"
+        )
     else:
         st.plotly_chart(charts.downtime_by_plant_stacked(by_plant), width="stretch", key="dt_by_plant")
 
@@ -256,7 +317,9 @@ def _downtime_section(filters: DescriptiveFilters) -> None:
     st.markdown("##### Repair Time Distribution")
     distribution = queries.downtime_distribution(tags, filters.date_from, filters.date_to)
     if distribution.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada insiden pada rentang ini."), width="stretch", key="dt_box_empty"
+        )
     else:
         st.plotly_chart(charts.downtime_box_plot(distribution), width="stretch", key="dt_box")
 
@@ -291,7 +354,9 @@ def _environmental_section(filters: DescriptiveFilters, plants_df: pd.DataFrame)
             selected_plant_codes, pollutant, filters.date_from, filters.date_to
         )
         if trend_df.empty:
-            st.plotly_chart(charts.empty_state("Tidak ada data."), width="stretch")
+            st.plotly_chart(
+                charts.empty_state("Tidak ada data."), width="stretch", key="env_trend_chart_empty"
+            )
         else:
             st.plotly_chart(
                 charts.environmental_trend_chart(trend_df, queries.VALID_POLLUTANT_COLUMNS[pollutant]),
@@ -307,7 +372,9 @@ def _environmental_section(filters: DescriptiveFilters, plants_df: pd.DataFrame)
         label_to_code[composition_plant_label], filters.date_from, filters.date_to
     )
     if composition_df.empty:
-        st.plotly_chart(charts.empty_state("Tidak ada data."), width="stretch")
+        st.plotly_chart(
+            charts.empty_state("Tidak ada data."), width="stretch", key="env_composition_empty"
+        )
     else:
         st.plotly_chart(
             charts.environmental_composition_area(composition_df), width="stretch", key="env_composition"
@@ -329,7 +396,9 @@ def _environmental_section(filters: DescriptiveFilters, plants_df: pd.DataFrame)
             tuple(label_to_code[label] for label in benchmark_labels), filters.date_from, filters.date_to
         )
         if benchmark_df.empty:
-            st.plotly_chart(charts.empty_state("Tidak ada data."), width="stretch")
+            st.plotly_chart(
+                charts.empty_state("Tidak ada data."), width="stretch", key="env_radar_empty"
+            )
         else:
             st.plotly_chart(charts.environmental_radar(benchmark_df), width="stretch", key="env_radar")
     else:

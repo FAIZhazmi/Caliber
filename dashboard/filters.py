@@ -18,6 +18,19 @@ class DescriptiveFilters:
     equipment: pd.DataFrame
 
 
+def _multiselect_narrowed(
+    label: str, options: list, key: str, placeholder: str | None = None,
+) -> list:
+    """A multiselect whose stored selection is pruned when `options` shrinks."""
+    stale = [v for v in st.session_state.get(key, []) if v not in options]
+    if stale:
+        st.session_state[key] = [v for v in st.session_state[key] if v not in stale]
+    return st.multiselect(
+        label, options=options, default=[],
+        placeholder=placeholder or f"Semua ({len(options)})", key=key,
+    )
+
+
 def render_sidebar_filters(
     equipment_df: pd.DataFrame,
     plants_df: pd.DataFrame,
@@ -39,41 +52,58 @@ def render_sidebar_filters(
         )
         selected_plants = [label_to_code[label] for label in selected_plant_labels]
 
-        type_options = sorted(equipment_df["equipment_type"].dropna().unique())
-        selected_types = st.multiselect(
-            "Equipment type",
-            options=type_options,
-            default=[],
-            placeholder="Semua tipe",
-            key="desc_type_filter",
-        )
-
-        selected_criticalities = st.multiselect(
-            "Criticality",
-            options=["High", "Medium", "Low"],
-            default=[],
-            placeholder="Semua criticality",
-            key="desc_crit_filter",
-        )
-
         scoped = equipment_df.copy()
         if selected_plants:
             scoped = scoped[scoped["plant"].isin(selected_plants)]
+
+        type_options = sorted(scoped["equipment_type"].dropna().unique())
+        selected_types = _multiselect_narrowed(
+            "Equipment type", type_options, "desc_type_filter", "Semua tipe"
+        )
         if selected_types:
             scoped = scoped[scoped["equipment_type"].isin(selected_types)]
-        if selected_criticalities:
-            scoped = scoped[scoped["criticality"].isin(selected_criticalities)]
 
         equipment_options = sorted(scoped["equipment_tag"].unique())
-        selected_equipment = st.multiselect(
-            "Equipment",
-            options=equipment_options,
-            default=[],
-            placeholder=f"Semua equipment ({len(equipment_options)})",
-            key="desc_equipment_filter",
+        selected_equipment = _multiselect_narrowed(
+            "Equipment", equipment_options, "desc_equipment_filter", f"Semua equipment ({len(equipment_options)})"
         )
         if selected_equipment:
             scoped = scoped[scoped["equipment_tag"].isin(selected_equipment)]
+
+        class_options = sorted(scoped["equipment_class"].dropna().unique())
+        selected_classes = _multiselect_narrowed(
+            "Equipment class", class_options, "desc_class_filter", "Semua class"
+        )
+        if selected_classes:
+            scoped = scoped[scoped["equipment_class"].isin(selected_classes)]
+
+        discipline_options = sorted(scoped["discipline"].dropna().unique())
+        selected_disciplines = _multiselect_narrowed(
+            "Discipline", discipline_options, "desc_discipline_filter", "Semua discipline"
+        )
+        if selected_disciplines:
+            scoped = scoped[scoped["discipline"].isin(selected_disciplines)]
+
+        criticality_order = ["High", "Medium", "Low"]
+        criticality_options = [
+            c for c in criticality_order if c in scoped["criticality"].dropna().unique()
+        ]
+        selected_criticalities = _multiselect_narrowed(
+            "Criticality", criticality_options, "desc_crit_filter", "Semua criticality"
+        )
+        if selected_criticalities:
+            scoped = scoped[scoped["criticality"].isin(selected_criticalities)]
+
+        name_query = st.text_input(
+            "Cari nama equipment",
+            value="",
+            placeholder="mis. cooling tower, blower, ...",
+            key="desc_name_filter",
+        )
+        if name_query.strip():
+            scoped = scoped[
+                scoped["equipment_name"].str.contains(name_query.strip(), case=False, na=False)
+            ]
 
         default_from = max(min_date, max_date - timedelta(days=182))
         date_range = st.date_input(
@@ -93,7 +123,10 @@ def render_sidebar_filters(
             for key in (
                 "desc_plant_filter",
                 "desc_type_filter",
+                "desc_class_filter",
+                "desc_discipline_filter",
                 "desc_crit_filter",
+                "desc_name_filter",
                 "desc_equipment_filter",
                 "desc_date_filter",
             ):

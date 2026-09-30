@@ -213,7 +213,8 @@ def availability_ranking(tags: tuple[str, ...], date_from: date, date_to: date) 
 # --------------------------------------------------------------- 2. Incident
 def bad_actor_ranking(tags: tuple[str, ...], date_from: date, date_to: date) -> pd.DataFrame:
     return db.run_query(
-        "SELECT equipment_tag, COUNT(*) AS n FROM fact_incident "
+        "SELECT equipment_tag, COUNT(*) AS n, COALESCE(SUM(downtime_hours), 0) AS total_downtime "
+        "FROM fact_incident "
         "WHERE equipment_tag = ANY(:tags) AND failure_date >= :start AND failure_date < :end "
         "GROUP BY equipment_tag",
         {"tags": list(tags), "start": _start(date_from), "end": _end_exclusive(date_to)},
