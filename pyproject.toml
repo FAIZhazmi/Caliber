@@ -19,7 +19,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dashboard = ["plotly>=6,<7", "streamlit>=1.45,<2"]
+dashboard = [
+    "plotly>=6,<7",
+    "streamlit>=1.45,<2",
+    "sqlalchemy>=2,<3",
+    "psycopg2-binary>=2.9,<3",
+    "python-dotenv>=1,<2",
+]
 dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
 
 [project.scripts]

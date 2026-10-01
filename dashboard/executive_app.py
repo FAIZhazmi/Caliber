@@ -12,7 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from dashboard import queries  # noqa: E402
+from dashboard.descriptive import render_descriptive_tab  # noqa: E402
 from dashboard.executive_view import render_predictive_maintenance_executive  # noqa: E402
+from dashboard.filters import render_sidebar_filters  # noqa: E402
 
 
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
@@ -54,5 +57,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-render_predictive_maintenance_executive(REPORTING_DIRECTORY)
+executive_tab, descriptive_tab = st.tabs(
+    ["Ringkasan Eksekutif", "Analitika Deskriptif"]
+)
 
+with executive_tab:
+    render_predictive_maintenance_executive(REPORTING_DIRECTORY)
+
+with descriptive_tab:
+    try:
+        equipment_dim, plants_dim, parameters_dim = queries.load_dimensions()
+        min_date, max_date = queries.date_bounds()
+    except Exception as exc:  # noqa: BLE001 - connection feedback belongs in the UI
+        st.error(f"Analitika deskriptif belum dapat terhubung ke Supabase: {exc}")
+        st.info(
+            "Isi SUPABASE_DB_URL di file .env menggunakan Session Pooler Supabase. "
+            "Ringkasan Eksekutif tetap dapat digunakan tanpa koneksi database ini."
+        )
+    else:
+        descriptive_filters = render_sidebar_filters(
+            equipment_dim,
+            plants_dim,
+            min_date,
+            max_date,
+        )
+        render_descriptive_tab(
+            descriptive_filters,
+            plants_dim,
+            parameters_dim,
+        )

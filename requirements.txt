@@ -7,3 +7,6 @@ pyarrow>=18,<22
 scikit-learn==1.7.2
 plotly>=6,<7
 streamlit>=1.45,<2
+sqlalchemy>=2,<3
+psycopg2-binary>=2.9,<3
+python-dotenv>=1,<2

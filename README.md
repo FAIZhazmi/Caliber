@@ -235,7 +235,7 @@ Two Streamlit applications deliberately serve different audiences:
 
 | Application | Port | Audience | Contents |
 |---|---:|---|---|
-| Executive Dashboard | 8501 | Executives and the final combined dashboard | Decision KPIs, non-normal equipment, plants requiring attention, recommended action, verified RCA precedent, and concise inspection guidance |
+| Executive Dashboard | 8501 | Executives and the final combined dashboard | `Ringkasan Eksekutif` for predictive decisions plus the merged `Analitika Deskriptif` tab backed by Supabase |
 | ML Console | 8502 | Data/ML team | Scores, thresholds, validation/test evidence, label audit, robustness, SHAP, episode/cooldown, and model documentation |
 
 Open two terminals and run the `.cmd` launchers (these do not require changing
@@ -252,8 +252,13 @@ The Executive Dashboard intentionally does not display precision/recall, raw sco
 thresholds, SHAP values, similarity numbers, or backtest tables. The 30-day experimental
 warning remains visible because it materially affects how a decision should be interpreted.
 
-The predictive executive section is reusable. The descriptive-analytics dashboard can embed
-it as one tab without copying any model logic:
+The descriptive tab requires a direct read-only PostgreSQL connection. Copy the
+`SUPABASE_DB_URL` Session Pooler value from Supabase into `.env` as documented in
+`.env.example`. If it is missing or unavailable, only the descriptive tab shows a connection
+message; the predictive executive summary continues to work from reporting artifacts.
+
+The predictive executive section remains reusable in another combined dashboard without
+copying any model logic:
 
 ```python
 from pathlib import Path
