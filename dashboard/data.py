@@ -9,7 +9,13 @@ import numpy as np
 import pandas as pd
 
 
-RISK_LEVELS = ("ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR", "NORMAL")
+RISK_LEVELS = (
+    "ACTION_NOW",
+    "PLAN_MAINTENANCE",
+    "DATA_QUALITY_REVIEW",
+    "MONITOR",
+    "NORMAL",
+)
 RISK_REQUIRED_COLUMNS = {
     "risk_rank",
     "equipment_tag",
@@ -36,6 +42,9 @@ RISK_REQUIRED_COLUMNS = {
     "threshold_proximity_0_100",
     "recommended_action",
     "source_time_status",
+    "data_quality_status",
+    "data_quality_publish_allowed",
+    "data_quality_reason",
 }
 PLANT_REQUIRED_COLUMNS = {
     "plant_rank",
@@ -43,6 +52,7 @@ PLANT_REQUIRED_COLUMNS = {
     "equipment_count",
     "action_now_count",
     "plan_maintenance_count",
+    "data_quality_review_count",
     "monitor_count",
     "normal_count",
     "alert_7d_count",
@@ -76,10 +86,28 @@ def _require_columns(frame: pd.DataFrame, required: set[str], name: str) -> None
 
 def load_dashboard_data(reporting_directory: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """Load and validate the three reporting artifacts used by Streamlit."""
+    operational_available = (
+        reporting_directory / "operational_current_equipment_risk.parquet"
+    ).exists()
     paths = {
-        "equipment": reporting_directory / "current_equipment_risk.parquet",
-        "plant": reporting_directory / "plant_risk_summary.parquet",
-        "summary": reporting_directory / "predictive_maintenance_summary.json",
+        "equipment": reporting_directory
+        / (
+            "operational_current_equipment_risk.parquet"
+            if operational_available
+            else "current_equipment_risk.parquet"
+        ),
+        "plant": reporting_directory
+        / (
+            "operational_plant_risk_summary.parquet"
+            if operational_available
+            else "plant_risk_summary.parquet"
+        ),
+        "summary": reporting_directory
+        / (
+            "operational_predictive_maintenance_summary.json"
+            if operational_available
+            else "predictive_maintenance_summary.json"
+        ),
     }
     missing_files = [str(path) for path in paths.values() if not path.exists()]
     if missing_files:
@@ -120,6 +148,57 @@ def load_dashboard_data(reporting_directory: Path) -> tuple[pd.DataFrame, pd.Dat
     return risk, plants, summary
 
 
+def load_competition_evidence(
+    reporting_directory: Path,
+) -> tuple[dict, pd.DataFrame]:
+    """Load optional competition evidence without breaking the core dashboard."""
+    summary_path = reporting_directory / "competition_evidence_summary.json"
+    shap_path = reporting_directory / "equipment_shap_values.parquet"
+    if not summary_path.exists() or not shap_path.exists():
+        return {}, pd.DataFrame()
+    try:
+        evidence = json.loads(summary_path.read_text(encoding="utf-8"))
+        shap_values = pd.read_parquet(shap_path)
+    except Exception as exc:
+        raise DashboardDataError(
+            f"Gagal membaca artefak competition readiness: {exc}"
+        ) from exc
+    shap_required = {
+        "equipment_tag",
+        "horizon_days",
+        "feature",
+        "feature_group",
+        "shap_value",
+        "absolute_shap_value",
+        "shap_rank",
+        "direction",
+    }
+    _require_columns(shap_values, shap_required, "equipment_shap_values")
+    return evidence, shap_values
+
+
+def load_rca_rag_evidence(reporting_directory: Path) -> tuple[dict, pd.DataFrame]:
+    """Load optional verified-RCA retrieval and inspection guidance outputs."""
+    summary_path = reporting_directory / "rca_rag_summary.json"
+    guidance_path = reporting_directory / "equipment_inspection_guidance.parquet"
+    if not summary_path.exists() or not guidance_path.exists():
+        return {}, pd.DataFrame()
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        guidance = pd.read_parquet(guidance_path)
+    except Exception as exc:
+        raise DashboardDataError(f"Gagal membaca artefak RCA RAG: {exc}") from exc
+    required = {
+        "equipment_tag",
+        "precedent_status",
+        "inspection_guidance",
+        "generation_status",
+        "disclaimer",
+    }
+    _require_columns(guidance, required, "equipment_inspection_guidance")
+    return summary, guidance
+
+
 def filter_equipment_risk(
     risk: pd.DataFrame,
     plants: list[str] | None = None,
@@ -155,6 +234,9 @@ def aggregate_equipment_by_plant(risk: pd.DataFrame) -> pd.DataFrame:
     working = risk.assign(
         _action_now=risk["risk_level"].eq("ACTION_NOW").astype("int16"),
         _plan=risk["risk_level"].eq("PLAN_MAINTENANCE").astype("int16"),
+        _quality=risk["risk_level"]
+        .eq("DATA_QUALITY_REVIEW")
+        .astype("int16"),
         _monitor=risk["risk_level"].eq("MONITOR").astype("int16"),
         _normal=risk["risk_level"].eq("NORMAL").astype("int16"),
     )
@@ -165,6 +247,7 @@ def aggregate_equipment_by_plant(risk: pd.DataFrame) -> pd.DataFrame:
             equipment_count=("equipment_tag", "nunique"),
             action_now_count=("_action_now", "sum"),
             plan_maintenance_count=("_plan", "sum"),
+            data_quality_review_count=("_quality", "sum"),
             monitor_count=("_monitor", "sum"),
             normal_count=("_normal", "sum"),
             alert_7d_count=("alert_7d", "sum"),

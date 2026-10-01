@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-09-30T11:20:00.222577+00:00",
+  "policy": {
+    "reset_after_clear_hours": 24,
+    "notification_cooldown_hours": 72,
+    "interpretation": "One recurring signal is one episode; cooldown can suppress a notification but does not change model scores."
+  },
+  "targets": {
+    "7d": {
+      "rolling_validation": {
+        "action": {
+          "episodes": 41,
+          "true_episodes": 16,
+          "false_episodes": 25,
+          "episode_precision": 0.3902439024390244,
+          "notifications_sent": 40,
+          "notifications_suppressed_by_cooldown": 1,
+          "false_notifications": 24,
+          "false_episodes_per_equipment_month": 0.09004111939415455,
+          "false_notifications_per_equipment_month": 0.08643947461838837,
+          "events": 19,
+          "detected_events": 16,
+          "event_recall": 0.8421052631578947,
+          "median_earliest_warning_days": 3.3629977703094482,
+          "exposure_equipment_months": 277.65092402464063
+        },
+        "warning": {
+          "episodes": 84,
+          "true_episodes": 19,
+          "false_episodes": 65,
+          "episode_precision": 0.2261904761904762,
+          "notifications_sent": 73,
+          "notifications_suppressed_by_cooldown": 11,
+          "false_notifications": 56,
+          "false_episodes_per_equipment_month": 0.23410691042480183,
+          "false_notifications_per_equipment_month": 0.2016921074429062,
+          "events": 19,
+          "detected_events": 18,
+          "event_recall": 0.9473684210526315,
+          "median_earliest_warning_days": 3.80932879447937,
+          "exposure_equipment_months": 277.65092402464063
+        }
+      },
+      "test": {
+        "action": {
+          "episodes": 23,
+          "true_episodes": 10,
+          "false_episodes": 13,
+          "episode_precision": 0.43478260869565216,
+          "notifications_sent": 22,
+          "notifications_suppressed_by_cooldown": 1,
+          "false_notifications": 12,
+          "false_episodes_per_equipment_month": 0.09341064683663834,
+          "false_notifications_per_equipment_month": 0.08622521246458924,
+          "events": 10,
+          "detected_events": 10,
+          "event_recall": 1.0,
+          "median_earliest_warning_days": 2.6730902194976807,
+          "exposure_equipment_months": 139.17043121149896
+        },
+        "warning": {
+          "episodes": 70,
+          "true_episodes": 12,
+          "false_episodes": 58,
+          "episode_precision": 0.17142857142857143,
+          "notifications_sent": 58,
+          "notifications_suppressed_by_cooldown": 12,
+          "false_notifications": 48,
+          "false_episodes_per_equipment_month": 0.416755193578848,
+          "false_notifications_per_equipment_month": 0.34490084985835695,
+          "events": 10,
+          "detected_events": 10,
+          "event_recall": 1.0,
+          "median_earliest_warning_days": 4.009438514709473,
+          "exposure_equipment_months": 139.17043121149896
+        }
+      }
+    },
+    "30d": {
+      "rolling_validation": {
+        "action": {
+          "episodes": 31,
+          "true_episodes": 17,
+          "false_episodes": 14,
+          "episode_precision": 0.5483870967741935,
+          "notifications_sent": 28,
+          "notifications_suppressed_by_cooldown": 3,
+          "false_notifications": 14,
+          "false_episodes_per_equipment_month": 0.05823766570999043,
+          "false_notifications_per_equipment_month": 0.05823766570999043,
+          "events": 21,
+          "detected_events": 17,
+          "event_recall": 0.8095238095238095,
+          "median_earliest_warning_days": 29.97428321838379,
+          "exposure_equipment_months": 240.39425051334703
+        },
+        "warning": {
+          "episodes": 102,
+          "true_episodes": 21,
+          "false_episodes": 81,
+          "episode_precision": 0.20588235294117646,
+          "notifications_sent": 88,
+          "notifications_suppressed_by_cooldown": 14,
+          "false_notifications": 69,
+          "false_episodes_per_equipment_month": 0.3369464944649446,
+          "false_notifications_per_equipment_month": 0.28702849528495283,
+          "events": 21,
+          "detected_events": 20,
+          "event_recall": 0.9523809523809523,
+          "median_earliest_warning_days": 29.961620330810547,
+          "exposure_equipment_months": 240.39425051334703
+        }
+      },
+      "test": {
+        "action": {
+          "episodes": 18,
+          "true_episodes": 10,
+          "false_episodes": 8,
+          "episode_precision": 0.5555555555555556,
+          "notifications_sent": 17,
+          "notifications_suppressed_by_cooldown": 1,
+          "false_notifications": 8,
+          "false_episodes_per_equipment_month": 0.06448622881355932,
+          "false_notifications_per_equipment_month": 0.06448622881355932,
+          "events": 10,
+          "detected_events": 10,
+          "event_recall": 1.0,
+          "median_earliest_warning_days": 29.9855899810791,
+          "exposure_equipment_months": 124.05749486652978
+        },
+        "warning": {
+          "episodes": 133,
+          "true_episodes": 11,
+          "false_episodes": 122,
+          "episode_precision": 0.08270676691729323,
+          "notifications_sent": 109,
+          "notifications_suppressed_by_cooldown": 24,
+          "false_notifications": 100,
+          "false_episodes_per_equipment_month": 0.9834149894067796,
+          "false_notifications_per_equipment_month": 0.8060778601694915,
+          "events": 10,
+          "detected_events": 10,
+          "event_recall": 1.0,
+          "median_earliest_warning_days": 29.971179962158203,
+          "exposure_equipment_months": 124.05749486652978
+        }
+      }
+    }
+  }
+}

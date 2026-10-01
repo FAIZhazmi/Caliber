@@ -19,6 +19,17 @@ predictive_maintenance:
       - {lookback_hours: 6, minimum_hits: 4}
       - {lookback_hours: 12, minimum_hits: 9}
       - {lookback_hours: 24, minimum_hits: 18}
+  data_quality_guardrail:
+    enabled: true
+    lower_quantile: 0.005
+    upper_quantile: 0.995
+    range_iqr_multiplier: 0.10
+    minimum_reference_rows: 100
+    maximum_missing_feature_fraction: 0.05
+    maximum_out_of_range_feature_fraction: 0.06
+    maximum_coherence_violations: 0
+    delta_coherence_tolerance_ratio: 0.00001
+    zscore_coherence_tolerance: 0.0001
   split_search:
     minimum_train_events: 12
     minimum_validation_events: 8
@@ -46,6 +57,7 @@ predictive_maintenance:
     minimum_validation_events: 5
   threshold_calibration:
     threshold_candidate_count: 121
+    episode_reset_after_clear_hours: 24
     action:
       7d:
         minimum_event_recall: 0.80
@@ -54,6 +66,8 @@ predictive_maintenance:
       30d:
         minimum_event_recall: 0.80
         minimum_median_warning_days: 7.0
+        false_alert_metric: "episodes"
+        maximum_false_alert_episodes_per_equipment_month: 0.10
         maximum_false_alert_days_per_equipment_month: 1.5
     warning:
       7d:
@@ -63,6 +77,8 @@ predictive_maintenance:
       30d:
         minimum_event_recall: 0.90
         minimum_median_warning_days: 14.0
+        false_alert_metric: "episodes"
+        maximum_false_alert_episodes_per_equipment_month: 0.35
         maximum_false_alert_days_per_equipment_month: 3.0
   reporting:
     stale_after_hours: 24

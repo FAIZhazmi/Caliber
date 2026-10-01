@@ -150,3 +150,120 @@ prediction_publish_receipt:
   type: json.JSONDataset
   filepath: data/08_reporting/prediction_publish_receipt.json
   save_args: {indent: 2}
+
+operational_failure_model_7d:
+  type: pickle.PickleDataset
+  filepath: data/06_models/operational_failure_model_7d.pkl
+
+operational_failure_model_30d:
+  type: pickle.PickleDataset
+  filepath: data/06_models/operational_failure_model_30d.pkl
+
+operational_failure_evaluation_predictions:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/operational_failure_evaluation_predictions.parquet
+  save_args: {compression: zstd}
+
+operational_predictive_maintenance_metrics:
+  type: json.JSONDataset
+  filepath: data/07_model_output/operational_predictive_maintenance_metrics.json
+  save_args: {indent: 2}
+
+model_hardening_report:
+  type: json.JSONDataset
+  filepath: data/07_model_output/model_hardening_report.json
+  save_args: {indent: 2}
+
+operational_threshold_calibration_results:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/operational_threshold_calibration_results.parquet
+  save_args: {compression: zstd}
+
+operational_alert_persistence_evaluation:
+  type: json.JSONDataset
+  filepath: data/07_model_output/operational_alert_persistence_evaluation.json
+  save_args: {indent: 2}
+
+operational_current_equipment_risk:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/operational_current_equipment_risk.parquet
+  save_args: {compression: zstd}
+
+operational_plant_risk_summary:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/operational_plant_risk_summary.parquet
+  save_args: {compression: zstd}
+
+operational_predictive_maintenance_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/operational_predictive_maintenance_summary.json
+  save_args: {indent: 2}
+
+alert_episode_details:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/alert_episode_details.parquet
+  save_args: {compression: zstd}
+
+alert_episode_evaluation:
+  type: json.JSONDataset
+  filepath: data/07_model_output/alert_episode_evaluation.json
+  save_args: {indent: 2}
+
+robustness_results:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/robustness_results.parquet
+  save_args: {compression: zstd}
+
+robustness_summary:
+  type: json.JSONDataset
+  filepath: data/07_model_output/robustness_summary.json
+  save_args: {indent: 2}
+
+equipment_shap_values:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/equipment_shap_values.parquet
+  save_args: {compression: zstd}
+
+shap_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/shap_summary.json
+  save_args: {indent: 2}
+
+competition_evidence_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/competition_evidence_summary.json
+  save_args: {indent: 2}
+
+caliber_model_card:
+  type: text.TextDataset
+  filepath: docs/CALIBER_MODEL_CARD.md
+  fs_args:
+    open_args_load: {encoding: utf-8}
+    open_args_save: {encoding: utf-8}
+
+caliber_demo_material:
+  type: text.TextDataset
+  filepath: docs/CALIBER_DEMO_SCRIPT.md
+  fs_args:
+    open_args_load: {encoding: utf-8}
+    open_args_save: {encoding: utf-8}
+
+rca_retrieval_results:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/rca_retrieval_results.parquet
+  save_args: {compression: zstd}
+
+rca_retrieval_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/rca_retrieval_summary.json
+  save_args: {indent: 2}
+
+equipment_inspection_guidance:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/equipment_inspection_guidance.parquet
+  save_args: {compression: zstd}
+
+rca_rag_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/rca_rag_summary.json
+  save_args: {indent: 2}

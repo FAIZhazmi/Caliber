@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.1.0",
+  "generated_at": "2026-09-30T11:20:36.210000+00:00",
+  "retrieval_method": "tfidf_cosine_verified_rca_only",
+  "verified_case_count": 5,
+  "verified_document_count": 5,
+  "retrieval_scope": "real_rca_backed only",
+  "similarity_threshold": 0.08,
+  "eligible_equipment_count": 3,
+  "data_quality_skipped_count": 0,
+  "verified_precedent_count": 3,
+  "no_verified_precedent_count": 0,
+  "test_data_used_for_retrieval_tuning": false,
+  "guidance_count": 3,
+  "ollama_enabled": false,
+  "ollama_generated_count": 0,
+  "generation_policy": "LLM may phrase inspection guidance only; retrieval, similarity gating, and precedent status are deterministic.",
+  "diagnosis_allowed": false,
+  "disclaimer": "Panduan ini untuk inspeksi awal, bukan diagnosis kerusakan atau otorisasi shutdown/maintenance."
+}

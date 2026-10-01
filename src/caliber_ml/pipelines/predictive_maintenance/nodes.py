@@ -572,6 +572,7 @@ def _operational_metrics(
     scored: pd.DataFrame,
     threshold: float,
     persistence_parameters: dict | None = None,
+    episode_parameters: dict | None = None,
 ) -> dict:
     """Calculate row, event, lead-time, and false-alert-day metrics."""
     evaluated = scored.copy(deep=False)
@@ -619,6 +620,18 @@ def _operational_metrics(
     metrics["false_alert_days_per_equipment_month"] = (
         float(false_alert_days / equipment_months) if equipment_months else None
     )
+    episode_metrics = _alert_episode_metrics(
+        evaluated,
+        prediction.astype(bool),
+        reset_hours=int(
+            (episode_parameters or {}).get("reset_after_clear_hours", 24)
+        ),
+        exposure_equipment_months=equipment_months,
+    )
+    metrics["episode_metrics"] = episode_metrics
+    metrics["false_alert_episodes_per_equipment_month"] = episode_metrics[
+        "false_alert_episodes_per_equipment_month"
+    ]
     settings = persistence_parameters or {}
     metrics["persistence"] = {
         "lookback_hours": int(settings.get("lookback_hours", 1)),
@@ -627,6 +640,85 @@ def _operational_metrics(
         "maximum_observed_hits": int(hit_counts.max()) if len(hit_counts) else 0,
     }
     return metrics
+
+
+def _alert_episode_metrics(
+    scored: pd.DataFrame,
+    prediction: np.ndarray,
+    reset_hours: int,
+    exposure_equipment_months: float,
+) -> dict:
+    """Collapse persistent alert rows into operational episodes."""
+    if reset_hours < 1:
+        raise ValueError("episode reset_after_clear_hours must be positive")
+    active = scored.loc[
+        prediction,
+        [
+            column
+            for column in (
+                "fold",
+                "equipment_tag",
+                "timestamp",
+                "y_true",
+            )
+            if column in scored.columns
+        ],
+    ].copy()
+    if active.empty:
+        return {
+            "episodes": 0,
+            "true_episodes": 0,
+            "false_episodes": 0,
+            "episode_precision": None,
+            "false_alert_episodes_per_equipment_month": 0.0,
+            "median_episode_span_hours": None,
+            "maximum_episode_span_hours": None,
+            "reset_after_clear_hours": reset_hours,
+        }
+    group_columns = ["equipment_tag"]
+    if "fold" in active.columns:
+        group_columns.insert(0, "fold")
+    active = active.sort_values(group_columns + ["timestamp"])
+    gaps = active.groupby(group_columns, observed=True)["timestamp"].diff()
+    active["_new_episode"] = gaps.isna() | (
+        gaps > pd.Timedelta(hours=reset_hours)
+    )
+    active["_episode_number"] = active.groupby(
+        group_columns, observed=True
+    )["_new_episode"].cumsum()
+    episodes = (
+        active.groupby(
+            group_columns + ["_episode_number"], observed=True
+        )
+        .agg(
+            episode_start=("timestamp", "min"),
+            episode_end=("timestamp", "max"),
+            true_episode=("y_true", "max"),
+        )
+        .reset_index()
+    )
+    spans = (
+        (episodes["episode_end"] - episodes["episode_start"])
+        .dt.total_seconds()
+        .div(3600)
+        .add(1)
+    )
+    true_count = int(episodes["true_episode"].eq(1).sum())
+    false_count = int(len(episodes) - true_count)
+    return {
+        "episodes": int(len(episodes)),
+        "true_episodes": true_count,
+        "false_episodes": false_count,
+        "episode_precision": float(true_count / len(episodes)),
+        "false_alert_episodes_per_equipment_month": (
+            float(false_count / exposure_equipment_months)
+            if exposure_equipment_months
+            else None
+        ),
+        "median_episode_span_hours": float(spans.median()),
+        "maximum_episode_span_hours": float(spans.max()),
+        "reset_after_clear_hours": reset_hours,
+    }
 
 
 def _threshold_candidates(probability: np.ndarray, count: int) -> np.ndarray:
@@ -651,6 +743,7 @@ def _operational_threshold_curve(
     horizon_days: int,
     candidate_count: int,
     persistence_parameters: dict | None = None,
+    episode_parameters: dict | None = None,
 ) -> pd.DataFrame:
     """Evaluate candidate thresholds without using the final test period."""
     records = []
@@ -658,7 +751,10 @@ def _operational_threshold_curve(
         scored["failure_probability"].to_numpy(dtype="float64"), candidate_count
     ):
         metrics = _operational_metrics(
-            scored, float(threshold), persistence_parameters
+            scored,
+            float(threshold),
+            persistence_parameters,
+            episode_parameters,
         )
         event_metrics = metrics["event_metrics"]
         records.append(
@@ -679,6 +775,18 @@ def _operational_threshold_curve(
                 ],
                 "false_alert_days_per_equipment_month": metrics[
                     "false_alert_days_per_equipment_month"
+                ],
+                "false_alert_episodes": metrics["episode_metrics"][
+                    "false_episodes"
+                ],
+                "false_alert_episodes_per_equipment_month": metrics[
+                    "false_alert_episodes_per_equipment_month"
+                ],
+                "episode_precision": metrics["episode_metrics"][
+                    "episode_precision"
+                ],
+                "median_episode_span_hours": metrics["episode_metrics"][
+                    "median_episode_span_hours"
                 ],
                 "events": event_metrics["events"],
                 "detected_events": event_metrics["detected_events"],
@@ -708,18 +816,39 @@ def _select_operational_threshold(
 
     minimum_event_recall = float(rules.get("minimum_event_recall", 0.8))
     minimum_lead_days = float(rules.get("minimum_median_warning_days", 0.0))
-    maximum_false_alerts = float(
+    maximum_false_alert_days = float(
         rules.get("maximum_false_alert_days_per_equipment_month", np.inf)
     )
+    maximum_false_alert_episodes = float(
+        rules.get("maximum_false_alert_episodes_per_equipment_month", np.inf)
+    )
+    false_alert_metric = str(rules.get("false_alert_metric", "days"))
+    if false_alert_metric not in {"days", "episodes"}:
+        raise ValueError("false_alert_metric must be 'days' or 'episodes'")
+    if (
+        np.isfinite(maximum_false_alert_episodes)
+        and "false_alert_episodes_per_equipment_month" not in candidates
+    ):
+        raise ValueError("episode-based calibration requires episode metrics")
+    if "false_alert_episodes_per_equipment_month" not in candidates:
+        candidates["false_alert_episodes_per_equipment_month"] = np.nan
     candidates["meets_event_recall"] = (
         candidates["event_recall"].fillna(0) >= minimum_event_recall
     )
     candidates["meets_warning_lead"] = (
         candidates["median_earliest_warning_days"].fillna(0) >= minimum_lead_days
     )
-    candidates["meets_false_alert_limit"] = (
+    candidates["meets_false_alert_day_limit"] = (
         candidates["false_alert_days_per_equipment_month"].fillna(np.inf)
-        <= maximum_false_alerts
+        <= maximum_false_alert_days
+    )
+    candidates["meets_false_alert_episode_limit"] = (
+        candidates["false_alert_episodes_per_equipment_month"].fillna(np.inf)
+        <= maximum_false_alert_episodes
+    )
+    candidates["meets_false_alert_limit"] = (
+        candidates["meets_false_alert_day_limit"]
+        & candidates["meets_false_alert_episode_limit"]
     )
     candidates["constraints_met"] = candidates[
         [
@@ -729,17 +858,28 @@ def _select_operational_threshold(
         ]
     ].all(axis=1)
 
+    primary_false_alert_column = (
+        "false_alert_episodes_per_equipment_month"
+        if false_alert_metric == "episodes"
+        else "false_alert_days_per_equipment_month"
+    )
+    secondary_false_alert_column = (
+        "false_alert_days_per_equipment_month"
+        if false_alert_metric == "episodes"
+        else "false_alert_episodes_per_equipment_month"
+    )
     eligible = candidates.loc[candidates["constraints_met"]]
     if not eligible.empty:
         selected_index = eligible.sort_values(
             [
-                "false_alert_days_per_equipment_month",
+                primary_false_alert_column,
+                secondary_false_alert_column,
                 "precision",
                 "event_recall",
                 "median_earliest_warning_days",
                 "threshold",
             ],
-            ascending=[True, False, False, False, False],
+            ascending=[True, True, False, False, False, False],
         ).index[0]
         selection_basis = "all_constraints_met"
     else:
@@ -747,14 +887,37 @@ def _select_operational_threshold(
             candidates["meets_event_recall"] & candidates["meets_warning_lead"]
         ]
         if not safety_eligible.empty:
+            candidates["false_alert_constraint_violation"] = 0.0
+            if np.isfinite(maximum_false_alert_days):
+                candidates["false_alert_constraint_violation"] += (
+                    candidates["false_alert_days_per_equipment_month"]
+                    .fillna(np.inf)
+                    .sub(maximum_false_alert_days)
+                    .clip(lower=0)
+                    / max(maximum_false_alert_days, 1e-9)
+                )
+            if np.isfinite(maximum_false_alert_episodes):
+                candidates["false_alert_constraint_violation"] += (
+                    candidates["false_alert_episodes_per_equipment_month"]
+                    .fillna(np.inf)
+                    .sub(maximum_false_alert_episodes)
+                    .clip(lower=0)
+                    / max(maximum_false_alert_episodes, 1e-9)
+                )
+            safety_eligible = candidates.loc[
+                candidates["meets_event_recall"]
+                & candidates["meets_warning_lead"]
+            ]
             selected_index = safety_eligible.sort_values(
                 [
-                    "false_alert_days_per_equipment_month",
+                    "false_alert_constraint_violation",
+                    primary_false_alert_column,
+                    secondary_false_alert_column,
                     "precision",
                     "event_recall",
                     "threshold",
                 ],
-                ascending=[True, False, False, False],
+                ascending=[True, True, True, False, False, False],
             ).index[0]
             selection_basis = "event_and_lead_met_false_alert_limit_relaxed"
         else:
@@ -775,11 +938,12 @@ def _select_operational_threshold(
                 [
                     "safety_constraint_violation",
                     "event_recall",
-                    "false_alert_days_per_equipment_month",
+                    primary_false_alert_column,
+                    secondary_false_alert_column,
                     "precision",
                     "threshold",
                 ],
-                ascending=[True, False, True, False, False],
+                ascending=[True, False, True, True, False, False],
             ).index[0]
             selection_basis = "minimum_event_and_lead_constraint_violation"
 
@@ -797,10 +961,22 @@ def _select_operational_threshold(
             selected["meets_event_recall"] and selected["meets_warning_lead"]
         ),
         "false_alert_limit_met": bool(selected["meets_false_alert_limit"]),
+        "false_alert_day_limit_met": bool(
+            selected["meets_false_alert_day_limit"]
+        ),
+        "false_alert_episode_limit_met": bool(
+            selected["meets_false_alert_episode_limit"]
+        ),
+        "false_alert_metric": false_alert_metric,
+        "selection_dataset": "rolling_validation_only",
+        "final_test_locked_for_selection": True,
         "constraints": {
             "minimum_event_recall": minimum_event_recall,
             "minimum_median_warning_days": minimum_lead_days,
-            "maximum_false_alert_days_per_equipment_month": maximum_false_alerts,
+            "maximum_false_alert_days_per_equipment_month": maximum_false_alert_days,
+            "maximum_false_alert_episodes_per_equipment_month": (
+                maximum_false_alert_episodes
+            ),
         },
         "metrics": {
             "precision": float(selected["precision"]),
@@ -812,6 +988,15 @@ def _select_operational_threshold(
             ),
             "false_alert_days_per_equipment_month": float(
                 selected["false_alert_days_per_equipment_month"]
+            ),
+            "false_alert_episodes_per_equipment_month": (
+                None
+                if pd.isna(
+                    selected["false_alert_episodes_per_equipment_month"]
+                )
+                else float(
+                    selected["false_alert_episodes_per_equipment_month"]
+                )
             ),
         },
     }
@@ -1245,6 +1430,11 @@ def train_failure_models(
     rolling_parameters = parameters.get("rolling_backtest", {})
     calibration_parameters = parameters.get("threshold_calibration", {})
     persistence_parameters = parameters.get("alert_persistence", {})
+    episode_parameters = {
+        "reset_after_clear_hours": int(
+            calibration_parameters.get("episode_reset_after_clear_hours", 24)
+        )
+    }
     split_policy = {
         "mode": "chronological_percentage_search_with_rolling_calibration",
         "selected_candidate": selected_id,
@@ -1257,10 +1447,12 @@ def train_failure_models(
         "holdout_rca_equipment_from_training": holdout_rca,
         "selection_metric": "mean_validation_f1_7d_30d",
         "threshold_metric": "rolling_backtest_operational_constraints",
+        "30d_false_alert_metric": "episodes_with_day_guardrail",
         "rolling_folds": int(rolling_parameters.get("folds", 3)),
         "alert_persistence": persistence_parameters,
         "final_model_fit_on_all_pretest_rows": True,
         "test_metrics_used_for_selection": False,
+        "final_test_locked_for_threshold_tuning": True,
     }
     models: dict[int, dict] = {}
     metrics: dict[str, dict] = {
@@ -1301,6 +1493,20 @@ def train_failure_models(
         feature_columns = shared_feature_columns or _usable_numeric_features(
             data, train_mask, numeric_candidates
         )
+        # Fit the final locked-test model before materialising rolling predictions.
+        # This keeps the peak memory lower without changing training rows or targets.
+        model = _new_classifier(model_parameters, random_state)
+        train_features = data.loc[train_mask, feature_columns].astype("float32")
+        train_target = data.loc[train_mask, target_column].astype("int8")
+        with parallel_backend("threading", n_jobs=1):
+            model.fit(train_features, train_target)
+        data_quality_profile = _build_feature_quality_profile(
+            train_features,
+            feature_columns,
+            parameters.get("data_quality_guardrail", {}),
+        )
+        del train_features, train_target
+        gc.collect()
         rolling_scored, fold_records = _rolling_backtest_predictions(
             data=data,
             feature_columns=feature_columns,
@@ -1320,6 +1526,7 @@ def train_failure_models(
             horizon,
             candidate_count,
             persistence_parameters,
+            episode_parameters,
         )
         horizon_key = f"{horizon}d"
         action_rules = calibration_parameters.get("action", {}).get(
@@ -1376,10 +1583,16 @@ def train_failure_models(
                 rolling_scored["fold"].eq(fold_record["fold"])
             ]
             action_fold_metrics = _operational_metrics(
-                fold_scored, action_threshold, persistence_parameters
+                fold_scored,
+                action_threshold,
+                persistence_parameters,
+                episode_parameters,
             )
             warning_fold_metrics = _operational_metrics(
-                fold_scored, warning_threshold, persistence_parameters
+                fold_scored,
+                warning_threshold,
+                persistence_parameters,
+                episode_parameters,
             )
             for prefix, fold_metrics in {
                 "action": action_fold_metrics,
@@ -1400,17 +1613,12 @@ def train_failure_models(
                         f"{prefix}_false_alert_days_per_equipment_month": fold_metrics[
                             "false_alert_days_per_equipment_month"
                         ],
+                        f"{prefix}_false_alert_episodes_per_equipment_month": fold_metrics[
+                            "false_alert_episodes_per_equipment_month"
+                        ],
                     }
                 )
             rolling_result_records.append(fold_record)
-
-        model = _new_classifier(model_parameters, random_state)
-        train_features = data.loc[train_mask, feature_columns].astype("float32")
-        train_target = data.loc[train_mask, target_column].astype("int8")
-        with parallel_backend("threading", n_jobs=1):
-            model.fit(train_features, train_target)
-        del train_features, train_target
-        gc.collect()
 
         test_scored = _score_rows(
             model,
@@ -1438,16 +1646,28 @@ def train_failure_models(
         prediction_frames.append(test_scored)
 
         rolling_action_metrics = _operational_metrics(
-            rolling_scored, action_threshold, persistence_parameters
+            rolling_scored,
+            action_threshold,
+            persistence_parameters,
+            episode_parameters,
         )
         rolling_warning_metrics = _operational_metrics(
-            rolling_scored, warning_threshold, persistence_parameters
+            rolling_scored,
+            warning_threshold,
+            persistence_parameters,
+            episode_parameters,
         )
         test_action_metrics = _operational_metrics(
-            test_scored, action_threshold, persistence_parameters
+            test_scored,
+            action_threshold,
+            persistence_parameters,
+            episode_parameters,
         )
         test_warning_metrics = _operational_metrics(
-            test_scored, warning_threshold, persistence_parameters
+            test_scored,
+            warning_threshold,
+            persistence_parameters,
+            episode_parameters,
         )
 
         cohort_metrics = {}
@@ -1460,16 +1680,26 @@ def train_failure_models(
                 None
                 if cohort.empty
                 else _operational_metrics(
-                    cohort, action_threshold, persistence_parameters
+                    cohort,
+                    action_threshold,
+                    persistence_parameters,
+                    episode_parameters,
                 )
             )
 
         rca_training_holdout = temporal_train_mask & ~train_mask
+        release_status = (
+            "EXPERIMENTAL"
+            if horizon == 30 and not action_summary["constraints_met"]
+            else "INSPECTION_PRIORITY_BASELINE"
+        )
         metrics["targets"][horizon_key] = {
             "target_column": target_column,
             "feature_count": len(feature_columns),
             "feature_columns": feature_columns,
             "threshold_selection": "rolling_backtest_operational_constraints",
+            "release_status": release_status,
+            "test_locked_for_threshold_tuning": True,
             "threshold_calibration": {
                 "action": action_summary,
                 "warning": warning_summary,
@@ -1509,6 +1739,8 @@ def train_failure_models(
                 "action": action_summary,
                 "warning": warning_summary,
             },
+            "release_status": release_status,
+            "data_quality_profile": data_quality_profile,
             "trained_at": metrics["generated_at"],
             "split_policy": split_policy,
         }
@@ -1676,6 +1908,190 @@ def evaluate_alert_persistence(
     return report
 
 
+def _build_feature_quality_profile(
+    train_features: pd.DataFrame,
+    feature_columns: list[str],
+    parameters: dict,
+) -> dict:
+    """Store robust training-only feature ranges inside each model bundle."""
+    if not bool(parameters.get("enabled", False)):
+        return {"enabled": False}
+    lower_quantile = float(parameters.get("lower_quantile", 0.005))
+    upper_quantile = float(parameters.get("upper_quantile", 0.995))
+    range_iqr_multiplier = float(parameters.get("range_iqr_multiplier", 0.1))
+    minimum_rows = int(parameters.get("minimum_reference_rows", 100))
+    if not 0 <= lower_quantile < 0.25 < 0.75 < upper_quantile <= 1:
+        raise ValueError("invalid data quality profile quantiles")
+    quantiles = train_features[feature_columns].quantile(
+        [lower_quantile, 0.25, 0.5, 0.75, upper_quantile]
+    )
+    features = {}
+    for column in feature_columns:
+        count = int(train_features[column].notna().sum())
+        if count < minimum_rows:
+            continue
+        first_quartile = float(quantiles.at[0.25, column])
+        third_quartile = float(quantiles.at[0.75, column])
+        iqr = max(third_quartile - first_quartile, 0.0)
+        features[column] = {
+            "reference_non_null_rows": count,
+            "median": float(quantiles.at[0.5, column]),
+            "lower_bound": float(
+                quantiles.at[lower_quantile, column]
+                - range_iqr_multiplier * iqr
+            ),
+            "upper_bound": float(
+                quantiles.at[upper_quantile, column]
+                + range_iqr_multiplier * iqr
+            ),
+        }
+    return {
+        "enabled": True,
+        "reference_scope": "final_training_rows_only_before_locked_test",
+        "lower_quantile": lower_quantile,
+        "upper_quantile": upper_quantile,
+        "range_iqr_multiplier": range_iqr_multiplier,
+        "feature_count": len(features),
+        "features": features,
+    }
+
+
+def _assess_feature_quality(
+    latest_features: pd.DataFrame,
+    model_7d: dict,
+    model_30d: dict,
+    parameters: dict,
+) -> pd.DataFrame:
+    """Apply missingness, training-range, and engineered-feature coherence gates."""
+    settings = parameters.get("data_quality_guardrail", {})
+    enabled = bool(settings.get("enabled", False))
+    result = latest_features[["equipment_tag"]].reset_index(drop=True).copy()
+    if not enabled:
+        result["data_quality_status"] = "NOT_EVALUATED"
+        result["data_quality_publish_allowed"] = True
+        result["data_quality_reason"] = "Guardrail dinonaktifkan"
+        result["missing_feature_fraction"] = np.float32(0)
+        result["out_of_range_feature_fraction"] = np.float32(0)
+        result["feature_coherence_violations"] = np.int16(0)
+        return result
+
+    profile = model_30d.get("data_quality_profile") or model_7d.get(
+        "data_quality_profile"
+    )
+    if not profile or not profile.get("enabled"):
+        raise ValueError(
+            "data quality guardrail is enabled but model profile is unavailable; "
+            "retrain predictive_maintenance"
+        )
+    feature_profiles = profile.get("features", {})
+    feature_columns = [
+        column for column in feature_profiles if column in latest_features
+    ]
+    if not feature_columns:
+        raise ValueError("data quality profile has no features available for scoring")
+    values = latest_features[feature_columns].apply(
+        pd.to_numeric, errors="coerce"
+    )
+    lower = pd.Series(
+        {
+            column: feature_profiles[column]["lower_bound"]
+            for column in feature_columns
+        }
+    )
+    upper = pd.Series(
+        {
+            column: feature_profiles[column]["upper_bound"]
+            for column in feature_columns
+        }
+    )
+    missing_fraction = values.isna().mean(axis=1)
+    outside = (values.lt(lower, axis=1) | values.gt(upper, axis=1)) & values.notna()
+    out_of_range_fraction = outside.sum(axis=1).div(len(feature_columns))
+
+    coherence_violations = np.zeros(len(latest_features), dtype="int16")
+    delta_tolerance = float(settings.get("delta_coherence_tolerance_ratio", 1e-5))
+    zscore_tolerance = float(settings.get("zscore_coherence_tolerance", 1e-4))
+    for signal in CURRENT_SIGNAL_COLUMNS:
+        required = {
+            signal,
+            f"{signal}_lag_1h",
+            f"{signal}_delta_1h",
+            f"{signal}_mean_168h",
+            f"{signal}_std_168h",
+            f"{signal}_zscore_168h",
+        }
+        if not required.issubset(latest_features.columns):
+            continue
+        current = pd.to_numeric(latest_features[signal], errors="coerce")
+        lagged = pd.to_numeric(
+            latest_features[f"{signal}_lag_1h"], errors="coerce"
+        )
+        recorded_delta = pd.to_numeric(
+            latest_features[f"{signal}_delta_1h"], errors="coerce"
+        )
+        mean = pd.to_numeric(
+            latest_features[f"{signal}_mean_168h"], errors="coerce"
+        )
+        standard_deviation = pd.to_numeric(
+            latest_features[f"{signal}_std_168h"], errors="coerce"
+        )
+        recorded_zscore = pd.to_numeric(
+            latest_features[f"{signal}_zscore_168h"], errors="coerce"
+        )
+        delta_scale = current.abs().clip(lower=1.0)
+        delta_error = (recorded_delta - (current - lagged)).abs().div(delta_scale)
+        expected_zscore = (current - mean).div(
+            standard_deviation.where(standard_deviation.abs() > 1e-9)
+        )
+        zscore_error = (recorded_zscore - expected_zscore).abs()
+        inconsistent = (
+            delta_error.gt(delta_tolerance)
+            | zscore_error.gt(zscore_tolerance)
+        ).fillna(False)
+        coherence_violations += inconsistent.to_numpy(dtype="int16")
+
+    maximum_missing = float(
+        settings.get("maximum_missing_feature_fraction", 0.05)
+    )
+    maximum_outside = float(
+        settings.get("maximum_out_of_range_feature_fraction", 0.06)
+    )
+    maximum_coherence = int(settings.get("maximum_coherence_violations", 0))
+    review = (
+        missing_fraction.gt(maximum_missing)
+        | out_of_range_fraction.gt(maximum_outside)
+        | (coherence_violations > maximum_coherence)
+    )
+    reasons = []
+    for position in range(len(result)):
+        row_reasons = []
+        if missing_fraction.iloc[position] > maximum_missing:
+            row_reasons.append(
+                f"missing features {100 * missing_fraction.iloc[position]:.1f}%"
+            )
+        if out_of_range_fraction.iloc[position] > maximum_outside:
+            row_reasons.append(
+                "fitur di luar rentang training "
+                f"{100 * out_of_range_fraction.iloc[position]:.1f}%"
+            )
+        if coherence_violations[position] > maximum_coherence:
+            row_reasons.append(
+                f"{int(coherence_violations[position])} inkonsistensi fitur sensor"
+            )
+        reasons.append("; ".join(row_reasons) if row_reasons else "Lulus guardrail")
+    result["data_quality_status"] = np.where(review, "REVIEW", "PASS")
+    result["data_quality_publish_allowed"] = ~review.to_numpy()
+    result["data_quality_reason"] = reasons
+    result["missing_feature_fraction"] = missing_fraction.to_numpy(
+        dtype="float32"
+    )
+    result["out_of_range_feature_fraction"] = out_of_range_fraction.to_numpy(
+        dtype="float32"
+    )
+    result["feature_coherence_violations"] = coherence_violations
+    return result
+
+
 def _validate_model_bundle(
     bundle: dict, horizon_days: int, available_columns: pd.Index
 ) -> tuple[list[str], float, float]:
@@ -1839,6 +2255,35 @@ def score_latest_equipment_risk(
             f"_warning_hits_{horizon}d"
         ].to_numpy(dtype="int16")
 
+    quality = _assess_feature_quality(
+        latest.reset_index(drop=True),
+        model_7d,
+        model_30d,
+        parameters,
+    )
+    risk = risk.merge(
+        quality,
+        on="equipment_tag",
+        how="left",
+        validate="one_to_one",
+    )
+    model_monitor = risk["warning_7d"] | risk["warning_30d"]
+    risk["model_risk_level"] = np.select(
+        [risk["alert_7d"], risk["alert_30d"], model_monitor],
+        ["ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR"],
+        default="NORMAL",
+    )
+    for horizon in (7, 30):
+        risk[f"model_alert_{horizon}d"] = risk[f"alert_{horizon}d"]
+        risk[f"model_warning_{horizon}d"] = risk[f"warning_{horizon}d"]
+    quality_review = risk["data_quality_status"].eq("REVIEW")
+    risk["guardrail_suppressed_model_alert"] = quality_review & risk[
+        "model_risk_level"
+    ].ne("NORMAL")
+    for horizon in (7, 30):
+        risk.loc[quality_review, f"alert_{horizon}d"] = False
+        risk.loc[quality_review, f"warning_{horizon}d"] = False
+
     maximum_utilization = risk[
         ["threshold_utilization_7d", "threshold_utilization_30d"]
     ].max(axis=1)
@@ -1847,8 +2292,8 @@ def score_latest_equipment_risk(
     ).astype("float32")
     monitor = risk["warning_7d"] | risk["warning_30d"]
     risk["risk_level"] = np.select(
-        [risk["alert_7d"], risk["alert_30d"], monitor],
-        ["ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR"],
+        [quality_review, risk["alert_7d"], risk["alert_30d"], monitor],
+        ["DATA_QUALITY_REVIEW", "ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR"],
         default="NORMAL",
     )
     minimum_hits = int(persistence_parameters.get("minimum_hits", 1))
@@ -1857,8 +2302,10 @@ def score_latest_equipment_risk(
         f"{minimum_hits} dari {lookback_hours} pembacaan terakhir"
     )
     risk["risk_reason"] = np.select(
-        [risk["alert_7d"], risk["alert_30d"], monitor],
+        [quality_review, risk["alert_7d"], risk["alert_30d"], monitor],
         [
+            "Alert model ditahan oleh guardrail kualitas data: "
+            + risk["data_quality_reason"].astype(str),
             "Skor model 7 hari persisten melewati action threshold "
             f"({persistence_text})",
             "Skor model 30 hari persisten melewati action threshold "
@@ -1872,6 +2319,9 @@ def score_latest_equipment_risk(
         {
             "ACTION_NOW": "Inspeksi segera dan siapkan tindakan pemeliharaan",
             "PLAN_MAINTENANCE": "Review dalam 24 jam dan jadwalkan pemeliharaan",
+            "DATA_QUALITY_REVIEW": (
+                "Verifikasi integritas sensor dan hitung ulang prediksi sebelum tindakan"
+            ),
             "MONITOR": "Pantau tren pada shift berikutnya dan verifikasi kondisi sensor",
             "NORMAL": "Lanjutkan pemantauan rutin",
         }
@@ -1910,7 +2360,13 @@ def score_latest_equipment_risk(
         risk["signal_deviation_count"] = np.int8(0)
 
     severity = risk["risk_level"].map(
-        {"ACTION_NOW": 4, "PLAN_MAINTENANCE": 3, "MONITOR": 2, "NORMAL": 1}
+        {
+            "ACTION_NOW": 5,
+            "PLAN_MAINTENANCE": 4,
+            "DATA_QUALITY_REVIEW": 3,
+            "MONITOR": 2,
+            "NORMAL": 1,
+        }
     )
     risk = (
         risk.assign(_severity=severity, _maximum_utilization=maximum_utilization)
@@ -1926,6 +2382,9 @@ def score_latest_equipment_risk(
     plant_working = risk.assign(
         _action_now=risk["risk_level"].eq("ACTION_NOW").astype("int16"),
         _plan=risk["risk_level"].eq("PLAN_MAINTENANCE").astype("int16"),
+        _quality_review=risk["risk_level"]
+        .eq("DATA_QUALITY_REVIEW")
+        .astype("int16"),
         _monitor=risk["risk_level"].eq("MONITOR").astype("int16"),
         _normal=risk["risk_level"].eq("NORMAL").astype("int16"),
     )
@@ -1936,6 +2395,7 @@ def score_latest_equipment_risk(
             equipment_count=("equipment_tag", "nunique"),
             action_now_count=("_action_now", "sum"),
             plan_maintenance_count=("_plan", "sum"),
+            data_quality_review_count=("_quality_review", "sum"),
             monitor_count=("_monitor", "sum"),
             normal_count=("_normal", "sum"),
             alert_7d_count=("alert_7d", "sum"),
@@ -1962,11 +2422,12 @@ def score_latest_equipment_risk(
             [
                 "action_now_count",
                 "plan_maintenance_count",
+                "data_quality_review_count",
                 "monitor_count",
                 "maximum_threshold_proximity",
                 "plant",
             ],
-            ascending=[False, False, False, False, True],
+            ascending=[False, False, False, False, False, True],
         )
         .reset_index(drop=True)
     )
@@ -1976,7 +2437,13 @@ def score_latest_equipment_risk(
 
     risk_counts = {
         level: int(risk["risk_level"].eq(level).sum())
-        for level in ("ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR", "NORMAL")
+        for level in (
+            "ACTION_NOW",
+            "PLAN_MAINTENANCE",
+            "DATA_QUALITY_REVIEW",
+            "MONITOR",
+            "NORMAL",
+        )
     }
     reporting_summary = {
         "schema_version": "2.0.0",
@@ -1988,6 +2455,10 @@ def score_latest_equipment_risk(
         "alert_7d_count": int(risk["alert_7d"].sum()),
         "alert_30d_count": int(risk["alert_30d"].sum()),
         "stale_equipment_count": int(risk["stale_data"].sum()),
+        "data_quality_review_count": int(quality_review.sum()),
+        "data_quality_publish_blocked_count": int(
+            (~risk["data_quality_publish_allowed"]).sum()
+        ),
         "source_timezone": source_timezone,
         "source_age_hours": source_age_hours,
         "source_time_status": source_time_status,
@@ -2000,6 +2471,18 @@ def score_latest_equipment_risk(
                 persistence_parameters.get("require_latest", True)
             ),
         },
+        "data_quality_guardrail": {
+            "enabled": bool(
+                parameters.get("data_quality_guardrail", {}).get(
+                    "enabled", False
+                )
+            ),
+            "review_count": int(quality_review.sum()),
+            "publish_blocked_count": int(
+                (~risk["data_quality_publish_allowed"]).sum()
+            ),
+            "status_on_failure": "DATA_QUALITY_REVIEW",
+        },
         "label_quality": label_quality_report,
         "split_policy": model_7d.get("split_policy", {}),
         "models": {
@@ -2009,6 +2492,9 @@ def score_latest_equipment_risk(
                 "action_threshold": bundle_specs[horizon][2],
                 "warning_threshold": bundle_specs[horizon][3],
                 "feature_count": len(bundle_specs[horizon][1]),
+                "release_status": bundle_specs[horizon][0].get(
+                    "release_status", "UNSPECIFIED"
+                ),
                 "threshold_calibration": bundle_specs[horizon][0].get(
                     "threshold_calibration", {}
                 ),

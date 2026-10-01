@@ -1,0 +1,320 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-09-30T11:11:39.918494+00:00",
+  "estimator_refit": false,
+  "selection_dataset": "rolling_validation_only",
+  "final_test_locked_for_selection": true,
+  "profile_reference": "training_rows_before_test_only",
+  "targets": {
+    "7d": {
+      "original_action_threshold": 0.9906382963156701,
+      "original_warning_threshold": 0.9440525987887383,
+      "action": {
+        "threshold_kind": "action",
+        "threshold": 0.9906382963156701,
+        "selection_basis": "all_constraints_met",
+        "constraints_met": true,
+        "event_and_lead_constraints_met": true,
+        "false_alert_limit_met": true,
+        "false_alert_day_limit_met": true,
+        "false_alert_episode_limit_met": true,
+        "false_alert_metric": "days",
+        "selection_dataset": "rolling_validation_only",
+        "final_test_locked_for_selection": true,
+        "constraints": {
+          "minimum_event_recall": 0.8,
+          "minimum_median_warning_days": 1.0,
+          "maximum_false_alert_days_per_equipment_month": 1.0,
+          "maximum_false_alert_episodes_per_equipment_month": Infinity
+        },
+        "metrics": {
+          "precision": 0.6728358208955224,
+          "recall": 0.37219286657859973,
+          "f1": 0.4792685519880927,
+          "event_recall": 0.8421052631578947,
+          "median_earliest_warning_days": 3.3629977703094482,
+          "false_alert_days_per_equipment_month": 0.1368625014791149,
+          "false_alert_episodes_per_equipment_month": 0.09004111939415455
+        }
+      },
+      "warning": {
+        "threshold_kind": "warning",
+        "threshold": 0.9440525987887383,
+        "selection_basis": "all_constraints_met",
+        "constraints_met": true,
+        "event_and_lead_constraints_met": true,
+        "false_alert_limit_met": true,
+        "false_alert_day_limit_met": true,
+        "false_alert_episode_limit_met": true,
+        "false_alert_metric": "days",
+        "selection_dataset": "rolling_validation_only",
+        "final_test_locked_for_selection": true,
+        "constraints": {
+          "minimum_event_recall": 0.9,
+          "minimum_median_warning_days": 2.0,
+          "maximum_false_alert_days_per_equipment_month": 2.0,
+          "maximum_false_alert_episodes_per_equipment_month": Infinity
+        },
+        "metrics": {
+          "precision": 0.2773876404494382,
+          "recall": 0.5217965653896962,
+          "f1": 0.3622191655204035,
+          "event_recall": 0.9473684210526315,
+          "median_earliest_warning_days": 4.362997531890869,
+          "false_alert_days_per_equipment_month": 0.8571914566323513,
+          "false_alert_episodes_per_equipment_month": 0.23410691042480183
+        }
+      },
+      "release_status": "INSPECTION_PRIORITY_BASELINE",
+      "selection_dataset": "rolling_validation_only",
+      "test_locked_for_selection": true,
+      "rolling_validation_action_metrics": {
+        "rows": 201223,
+        "positive_rows": 3028,
+        "positive_rate": 0.015047981592561486,
+        "threshold": 0.9906382963156701,
+        "average_precision": 0.48188776083410023,
+        "roc_auc": 0.9443760803204002,
+        "brier_score": 0.044635252469140435,
+        "precision": 0.6728358208955224,
+        "recall": 0.37219286657859973,
+        "f1": 0.4792685519880927,
+        "balanced_accuracy": 0.6847139564356961,
+        "confusion_matrix": {
+          "true_negative": 197647,
+          "false_positive": 548,
+          "false_negative": 1901,
+          "true_positive": 1127
+        },
+        "event_metrics": {
+          "events": 19,
+          "detected_events": 16,
+          "event_recall": 0.8421052631578947,
+          "median_earliest_warning_days": 3.3629977703094482
+        },
+        "false_alert_rows": 548,
+        "false_alert_equipment_days": 38,
+        "exposure_equipment_months": 277.65092402464063,
+        "false_alert_days_per_equipment_month": 0.1368625014791149,
+        "episode_metrics": {
+          "episodes": 41,
+          "true_episodes": 16,
+          "false_episodes": 25,
+          "episode_precision": 0.3902439024390244,
+          "false_alert_episodes_per_equipment_month": 0.09004111939415455,
+          "median_episode_span_hours": 22.0,
+          "maximum_episode_span_hours": 220.0,
+          "reset_after_clear_hours": 24
+        },
+        "false_alert_episodes_per_equipment_month": 0.09004111939415455,
+        "persistence": {
+          "lookback_hours": 6,
+          "minimum_hits": 3,
+          "require_latest": true,
+          "maximum_observed_hits": 6
+        }
+      },
+      "locked_test_action_metrics": {
+        "rows": 101365,
+        "positive_rows": 1425,
+        "positive_rate": 0.014058106841611996,
+        "threshold": 0.9906382963156701,
+        "average_precision": 0.6120522635409357,
+        "roc_auc": 0.9723761941375352,
+        "brier_score": 0.06391926359380588,
+        "precision": 0.542507204610951,
+        "recall": 0.5284210526315789,
+        "f1": 0.5353714895129754,
+        "balanced_accuracy": 0.7610336201721033,
+        "confusion_matrix": {
+          "true_negative": 99305,
+          "false_positive": 635,
+          "false_negative": 672,
+          "true_positive": 753
+        },
+        "event_metrics": {
+          "events": 10,
+          "detected_events": 10,
+          "event_recall": 1.0,
+          "median_earliest_warning_days": 2.6730902194976807
+        },
+        "false_alert_rows": 635,
+        "false_alert_equipment_days": 38,
+        "exposure_equipment_months": 139.17043121149896,
+        "false_alert_days_per_equipment_month": 0.2730465061378659,
+        "episode_metrics": {
+          "episodes": 23,
+          "true_episodes": 10,
+          "false_episodes": 13,
+          "episode_precision": 0.43478260869565216,
+          "false_alert_episodes_per_equipment_month": 0.09341064683663834,
+          "median_episode_span_hours": 59.0,
+          "maximum_episode_span_hours": 198.0,
+          "reset_after_clear_hours": 24
+        },
+        "false_alert_episodes_per_equipment_month": 0.09341064683663834,
+        "persistence": {
+          "lookback_hours": 6,
+          "minimum_hits": 3,
+          "require_latest": true,
+          "maximum_observed_hits": 6
+        }
+      }
+    },
+    "30d": {
+      "original_action_threshold": 0.11882592678070081,
+      "original_warning_threshold": 0.0009173704963177786,
+      "action": {
+        "threshold_kind": "action",
+        "threshold": 0.11882592678070081,
+        "selection_basis": "event_and_lead_met_false_alert_limit_relaxed",
+        "constraints_met": false,
+        "event_and_lead_constraints_met": true,
+        "false_alert_limit_met": false,
+        "false_alert_day_limit_met": false,
+        "false_alert_episode_limit_met": true,
+        "false_alert_metric": "episodes",
+        "selection_dataset": "rolling_validation_only",
+        "final_test_locked_for_selection": true,
+        "constraints": {
+          "minimum_event_recall": 0.8,
+          "minimum_median_warning_days": 7.0,
+          "maximum_false_alert_days_per_equipment_month": 1.5,
+          "maximum_false_alert_episodes_per_equipment_month": 0.1
+        },
+        "metrics": {
+          "precision": 0.30917891846981904,
+          "recall": 0.6914128766459327,
+          "f1": 0.42728770405870903,
+          "event_recall": 0.8095238095238095,
+          "median_earliest_warning_days": 29.97428321838379,
+          "false_alert_days_per_equipment_month": 3.4360222768894353,
+          "false_alert_episodes_per_equipment_month": 0.05823766570999043
+        }
+      },
+      "warning": {
+        "threshold_kind": "warning",
+        "threshold": 0.0009173704963177786,
+        "selection_basis": "event_and_lead_met_false_alert_limit_relaxed",
+        "constraints_met": false,
+        "event_and_lead_constraints_met": true,
+        "false_alert_limit_met": false,
+        "false_alert_day_limit_met": false,
+        "false_alert_episode_limit_met": true,
+        "false_alert_metric": "episodes",
+        "selection_dataset": "rolling_validation_only",
+        "final_test_locked_for_selection": true,
+        "constraints": {
+          "minimum_event_recall": 0.9,
+          "minimum_median_warning_days": 14.0,
+          "maximum_false_alert_days_per_equipment_month": 3.0,
+          "maximum_false_alert_episodes_per_equipment_month": 0.35
+        },
+        "metrics": {
+          "precision": 0.29781664767653127,
+          "recall": 0.7812424266903627,
+          "f1": 0.4312405243913315,
+          "event_recall": 0.9523809523809523,
+          "median_earliest_warning_days": 29.967952728271484,
+          "false_alert_days_per_equipment_month": 4.459341260079268,
+          "false_alert_episodes_per_equipment_month": 0.3369464944649446
+        }
+      },
+      "release_status": "EXPERIMENTAL",
+      "selection_dataset": "rolling_validation_only",
+      "test_locked_for_selection": true,
+      "rolling_validation_action_metrics": {
+        "rows": 173767,
+        "positive_rows": 12379,
+        "positive_rate": 0.07123907301156146,
+        "threshold": 0.11882592678070081,
+        "average_precision": 0.351162935231528,
+        "roc_auc": 0.8445798867876346,
+        "brier_score": 0.13053082929538648,
+        "precision": 0.30917891846981904,
+        "recall": 0.6914128766459327,
+        "f1": 0.42728770405870903,
+        "balanced_accuracy": 0.7864579192261314,
+        "confusion_matrix": {
+          "true_negative": 142264,
+          "false_positive": 19124,
+          "false_negative": 3820,
+          "true_positive": 8559
+        },
+        "event_metrics": {
+          "events": 21,
+          "detected_events": 17,
+          "event_recall": 0.8095238095238095,
+          "median_earliest_warning_days": 29.97428321838379
+        },
+        "false_alert_rows": 19124,
+        "false_alert_equipment_days": 826,
+        "exposure_equipment_months": 240.39425051334703,
+        "false_alert_days_per_equipment_month": 3.4360222768894353,
+        "episode_metrics": {
+          "episodes": 31,
+          "true_episodes": 17,
+          "false_episodes": 14,
+          "episode_precision": 0.5483870967741935,
+          "false_alert_episodes_per_equipment_month": 0.05823766570999043,
+          "median_episode_span_hours": 650.0,
+          "maximum_episode_span_hours": 3395.0,
+          "reset_after_clear_hours": 24
+        },
+        "false_alert_episodes_per_equipment_month": 0.05823766570999043,
+        "persistence": {
+          "lookback_hours": 6,
+          "minimum_hits": 3,
+          "require_latest": true,
+          "maximum_observed_hits": 6
+        }
+      },
+      "locked_test_action_metrics": {
+        "rows": 90325,
+        "positive_rows": 5309,
+        "positive_rate": 0.05877663991143094,
+        "threshold": 0.11882592678070081,
+        "average_precision": 0.5050208615006684,
+        "roc_auc": 0.9252870495537271,
+        "brier_score": 0.09237977668808148,
+        "precision": 0.36656194927591756,
+        "recall": 0.901111320399322,
+        "f1": 0.5211328976034858,
+        "balanced_accuracy": 0.9019354004838428,
+        "confusion_matrix": {
+          "true_negative": 76749,
+          "false_positive": 8267,
+          "false_negative": 525,
+          "true_positive": 4784
+        },
+        "event_metrics": {
+          "events": 10,
+          "detected_events": 10,
+          "event_recall": 1.0,
+          "median_earliest_warning_days": 29.9855899810791
+        },
+        "false_alert_rows": 8267,
+        "false_alert_equipment_days": 369,
+        "exposure_equipment_months": 124.05749486652978,
+        "false_alert_days_per_equipment_month": 2.9744273040254234,
+        "episode_metrics": {
+          "episodes": 18,
+          "true_episodes": 10,
+          "false_episodes": 8,
+          "episode_precision": 0.5555555555555556,
+          "false_alert_episodes_per_equipment_month": 0.06448622881355932,
+          "median_episode_span_hours": 276.0,
+          "maximum_episode_span_hours": 3151.0,
+          "reset_after_clear_hours": 24
+        },
+        "false_alert_episodes_per_equipment_month": 0.06448622881355932,
+        "persistence": {
+          "lookback_hours": 6,
+          "minimum_hits": 3,
+          "require_latest": true,
+          "maximum_observed_hits": 6
+        }
+      }
+    }
+  }
+}

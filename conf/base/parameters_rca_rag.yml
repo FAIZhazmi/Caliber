@@ -1,0 +1,12 @@
+rca_rag:
+  expected_verified_cases: 5
+  top_k_cases: 3
+  top_shap_features: 5
+  similarity_threshold: 0.08
+  generation:
+    enabled: false
+    base_url: "http://127.0.0.1:11434"
+    model: "qwen2.5:3b"
+    temperature: 0.1
+    maximum_tokens: 350
+    timeout_seconds: 45

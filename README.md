@@ -28,9 +28,15 @@ Copy-Item .env.example .env
 # Edit SUPABASE_SECRET_KEY inside .env
 python Caliber.py run --pipelines feature_engineering
 python Caliber.py run --pipelines predictive_maintenance
+# Recalibrate saved scores from rolling validation and add input guardrails:
+python Caliber.py run --pipelines model_hardening
+# Build episode, robustness, SHAP, model-card, and demo evidence:
+python Caliber.py run --pipelines competition_readiness
+# Retrieve precedents only from the five verified RCA cases:
+python Caliber.py run --pipelines rca_rag
 # Explicitly publish persistent non-normal snapshots after model validation:
 python Caliber.py run --pipelines prediction_publishing
-# Or rebuild features and train both models in one run:
+# Or rebuild features, train both models, and harden them in one run:
 python Caliber.py run
 ```
 
@@ -152,6 +158,8 @@ RCA-verified.
 
 Operational status is deliberately separate from equipment criticality:
 
+- `DATA_QUALITY_REVIEW`: the latest input is missing, outside the training profile, or
+  internally inconsistent. Model alerts are suppressed and publication is blocked.
 - `ACTION_NOW`: the 7-day action threshold is crossed.
 - `PLAN_MAINTENANCE`: the 30-day action threshold is crossed while the 7-day threshold is not.
 - `MONITOR`: no action threshold is crossed, but a rolling-backtest warning threshold is crossed.
@@ -168,7 +176,11 @@ Prediction publication is intentionally excluded from the default pipeline. Run
 only persistent `ACTION_NOW`, `PLAN_MAINTENANCE`, and `MONITOR` rows to
 `public.fact_prediction_alert`.
 
+- A row must also pass `data_quality_publish_allowed`; `DATA_QUALITY_REVIEW` rows are never
+  sent to Supabase.
 - IDs use `CALIBER-SIM-YYYYMMDD-EQUIPMENT-HORIZON`, so reruns upsert instead of duplicating.
+- A 72-hour notification cooldown suppresses a new alert ID for equipment that already has a
+  recent open `CALIBER-SIM` alert; rerunning the same ID remains idempotent.
 - Rows use the database-valid status `Open`; the `CALIBER-SIM` prefix identifies simulation
   records.
 - `failure_probability_pct` contains the legacy table's representation of the model score.
@@ -178,17 +190,87 @@ only persistent `ACTION_NOW`, `PLAN_MAINTENANCE`, and `MONITOR` rows to
 - A successful run writes `prediction_publish_receipt.json` and verifies every published ID by
   reading it back from Supabase.
 
-## Dashboard
+## Competition-readiness evidence
 
-Start the Streamlit dashboard from the project root after the reporting artifacts exist:
+The `competition_readiness` pipeline is a post-training pipeline. It uses saved models and
+evaluation predictions, so it does not retrain or use final-test results to alter thresholds.
+It produces:
+
+- `alert_episode_details.parquet` and `alert_episode_evaluation.json`: continuous alerts are
+  grouped into episodes after 24 clear hours, with a 72-hour notification cooldown and
+  false-episode rates per equipment-month.
+- `robustness_results.parquet` and `robustness_summary.json`: deterministic snapshot stress
+  tests for 5% sensor noise, current-sensor outage, 10% feature dropout, and a +10% operating
+  shift. These measure score/status stability, not real failure accuracy.
+- `equipment_shap_values.parquet` and `shap_summary.json`: reproducible model-agnostic
+  Permutation SHAP values for the raw decision-function output. The background is the latest
+  six-hour synthetic cohort; SHAP is model attribution, not verified root cause.
+- `docs/CALIBER_MODEL_CARD.md`: generated scope, metrics, limitations, robustness results,
+  and release recommendation.
+- `docs/CALIBER_DEMO_SCRIPT.md`: a six-minute walkthrough, judge Q&A, and pre-demo checklist.
+
+The dashboard loads these outputs when available and shows per-equipment SHAP, episode metrics,
+robustness results, and download buttons for both generated documents.
+
+## Operational hardening and verified RCA retrieval
+
+`model_hardening` reuses the saved estimators without refitting them. It recalibrates action
+and warning thresholds only from expanding-window rolling validation, evaluates the untouched
+test period afterward, and builds a training-only feature-quality profile. The 30-day model is
+marked `EXPERIMENTAL` whenever its event-recall, warning-lead, false-alert-episode, or supporting
+false-alert-day guardrail is not met. Hardened artifacts use the `operational_` prefix and are
+the inputs for the dashboard, robustness checks, RAG, and prediction publisher.
+
+`rca_rag` combines each non-normal equipment's largest SHAP contributors with equipment
+metadata, then performs deterministic TF-IDF retrieval only against the five
+`real_rca_backed` cases. A match below the configured similarity threshold is reported as
+`belum ada precedent terverifikasi`. The optional Ollama step may phrase inspection guidance,
+but cannot set the match, make a diagnosis, or authorize maintenance/shutdown. When Ollama is
+disabled or unavailable, the pipeline emits deterministic inspection guidance with the same
+safety disclaimer.
+
+## Dashboards
+
+Two Streamlit applications deliberately serve different audiences:
+
+| Application | Port | Audience | Contents |
+|---|---:|---|---|
+| Executive Dashboard | 8501 | Executives and the final combined dashboard | Decision KPIs, non-normal equipment, plants requiring attention, recommended action, verified RCA precedent, and concise inspection guidance |
+| ML Console | 8502 | Data/ML team | Scores, thresholds, validation/test evidence, label audit, robustness, SHAP, episode/cooldown, and model documentation |
+
+Open two terminals and run the `.cmd` launchers (these do not require changing
+the Windows PowerShell execution policy):
 
 ```powershell
-streamlit run dashboard/app.py
+.\\run_executive_dashboard.cmd
+.\\run_ml_console.cmd
 ```
 
-The dashboard provides filters for plant, risk status, criticality, and equipment search; KPI
-cards; equipment and plant prioritisation; model-score detail; CSV download; and source-time
-quality warnings. It reads only `data/08_reporting` and never loads Supabase credentials, source
+The equivalent `.ps1` launchers are also available for systems that allow PowerShell scripts.
+
+The Executive Dashboard intentionally does not display precision/recall, raw scores,
+thresholds, SHAP values, similarity numbers, or backtest tables. The 30-day experimental
+warning remains visible because it materially affects how a decision should be interpreted.
+
+The predictive executive section is reusable. The descriptive-analytics dashboard can embed
+it as one tab without copying any model logic:
+
+```python
+from pathlib import Path
+from dashboard.executive_view import render_predictive_maintenance_executive
+
+with predictive_maintenance_tab:
+    render_predictive_maintenance_executive(Path("data/08_reporting"))
+```
+
+Ollama is called by the backend `rca_rag` pipeline, never on every dashboard refresh. Enable
+`rca_rag.generation.enabled` only when the configured Ollama service and Qwen model are ready,
+then rerun `python Caliber.py run --pipelines rca_rag`. The dashboard consumes the persisted
+guidance and clearly falls back to deterministic guidance when Ollama is unavailable. In both
+modes the LLM may phrase inspection steps only; it cannot change risk status, select an RCA
+precedent, diagnose a failure, or authorise shutdown.
+
+Both applications read only `data/08_reporting` and never load Supabase credentials, source
 tables, or serialized estimators.
 
 ## Data layers

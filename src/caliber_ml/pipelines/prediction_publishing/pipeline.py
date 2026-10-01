@@ -12,7 +12,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 build_prediction_publish_payload,
                 inputs=[
-                    "current_equipment_risk",
+                    "operational_current_equipment_risk",
                     "params:prediction_publishing",
                 ],
                 outputs="prediction_publish_payload",

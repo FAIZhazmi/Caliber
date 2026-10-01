@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 
 from caliber_ml.pipelines.predictive_maintenance.nodes import (
+    _assess_feature_quality,
+    _build_feature_quality_profile,
     _event_metrics,
     _persistence_state,
     _select_operational_threshold,
@@ -175,6 +177,71 @@ class PredictiveMaintenanceTests(unittest.TestCase):
         self.assertFalse(summary["constraints_met"])
         self.assertTrue(summary["event_and_lead_constraints_met"])
         self.assertFalse(summary["false_alert_limit_met"])
+
+    def test_30d_episode_calibration_keeps_day_guardrail(self):
+        curve = pd.DataFrame(
+            {
+                "threshold": [0.4, 0.6],
+                "precision": [0.4, 0.7],
+                "recall": [0.9, 0.8],
+                "f1": [0.55, 0.75],
+                "event_recall": [1.0, 0.8],
+                "median_earliest_warning_days": [25.0, 15.0],
+                "false_alert_days_per_equipment_month": [10.0, 2.0],
+                "false_alert_episodes_per_equipment_month": [0.05, 0.08],
+            }
+        )
+
+        threshold, summary, _ = _select_operational_threshold(
+            curve,
+            {
+                "minimum_event_recall": 0.8,
+                "minimum_median_warning_days": 7.0,
+                "false_alert_metric": "episodes",
+                "maximum_false_alert_episodes_per_equipment_month": 0.1,
+                "maximum_false_alert_days_per_equipment_month": 3.0,
+            },
+            "action",
+        )
+
+        self.assertEqual(threshold, 0.6)
+        self.assertTrue(summary["constraints_met"])
+        self.assertEqual(summary["false_alert_metric"], "episodes")
+        self.assertTrue(summary["final_test_locked_for_selection"])
+
+    def test_quality_guardrail_detects_incoherent_sensor_features(self):
+        vibration = np.linspace(1.0, 2.0, 200)
+        train = pd.DataFrame(
+            {
+                "vibration": vibration,
+                "vibration_lag_1h": vibration - 0.1,
+                "vibration_delta_1h": np.full(200, 0.1),
+                "vibration_mean_168h": vibration - 0.2,
+                "vibration_std_168h": np.full(200, 0.1),
+                "vibration_zscore_168h": np.full(200, 2.0),
+            }
+        )
+        settings = {
+            "enabled": True,
+            "maximum_missing_feature_fraction": 0.05,
+            "maximum_out_of_range_feature_fraction": 0.5,
+            "maximum_coherence_violations": 0,
+        }
+        profile = _build_feature_quality_profile(
+            train, train.columns.tolist(), settings
+        )
+        latest = train.iloc[[-1, -1]].reset_index(drop=True)
+        latest.insert(0, "equipment_tag", ["GOOD", "NOISY"])
+        latest.loc[1, "vibration_delta_1h"] = 9.0
+        bundle = {"data_quality_profile": profile}
+
+        result = _assess_feature_quality(
+            latest, bundle, bundle, {"data_quality_guardrail": settings}
+        ).set_index("equipment_tag")
+
+        self.assertEqual(result.loc["GOOD", "data_quality_status"], "PASS")
+        self.assertEqual(result.loc["NOISY", "data_quality_status"], "REVIEW")
+        self.assertFalse(result.loc["NOISY", "data_quality_publish_allowed"])
 
     def test_persistence_requires_three_hits_in_six_and_latest_hit(self):
         scored = pd.DataFrame(

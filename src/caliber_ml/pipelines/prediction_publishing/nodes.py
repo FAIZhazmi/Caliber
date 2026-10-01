@@ -97,6 +97,7 @@ def build_prediction_publish_payload(
         "alert_30d",
         "warning_7d",
         "warning_30d",
+        "data_quality_publish_allowed",
     }
     missing = sorted(required.difference(equipment_risk.columns))
     if missing:
@@ -110,6 +111,7 @@ def build_prediction_publish_payload(
     )
     selected = equipment_risk.loc[
         equipment_risk["risk_level"].isin(allowed_levels)
+        & equipment_risk["data_quality_publish_allowed"].eq(True)
     ].copy()
     columns = [
         "alert_id",
@@ -197,6 +199,48 @@ def _json_records(frame: pd.DataFrame) -> list[dict]:
     return records
 
 
+def _filter_payload_for_cooldown(
+    payload: pd.DataFrame,
+    existing_alerts: list[dict],
+    cooldown_hours: int,
+    alert_id_prefix: str,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Suppress a new episode while a prior CALIBER notification is cooling down."""
+    if cooldown_hours < 1:
+        return payload.copy(), []
+    existing = pd.DataFrame(existing_alerts)
+    if existing.empty:
+        return payload.copy(), []
+    required = {"alert_id", "equipment_tag", "predicted_at"}
+    if not required.issubset(existing.columns):
+        raise RuntimeError("Supabase cooldown query returned incomplete alert rows")
+    existing["predicted_at"] = pd.to_datetime(
+        existing["predicted_at"], errors="raise"
+    )
+    existing = existing.loc[
+        existing["alert_id"].astype("string").str.startswith(alert_id_prefix)
+    ]
+    keep = []
+    suppressed = []
+    cooldown = pd.Timedelta(hours=cooldown_hours)
+    for row in payload.itertuples(index=False):
+        predicted_at = pd.Timestamp(row.predicted_at)
+        prior = existing.loc[
+            existing["equipment_tag"].eq(row.equipment_tag)
+            & existing["alert_id"].ne(row.alert_id)
+        ]
+        age = predicted_at - prior["predicted_at"]
+        cooling_down = bool(
+            ((age >= pd.Timedelta(0)) & (age < cooldown)).any()
+        )
+        if cooling_down:
+            suppressed.append(str(row.alert_id))
+        else:
+            keep.append(str(row.alert_id))
+    allowed = payload.loc[payload["alert_id"].astype(str).isin(keep)].copy()
+    return allowed.reset_index(drop=True), suppressed
+
+
 def publish_predictions_to_supabase(
     payload: pd.DataFrame, parameters: dict
 ) -> dict:
@@ -225,7 +269,53 @@ def publish_predictions_to_supabase(
     if access_token:
         base_headers["Authorization"] = f"Bearer {access_token}"
 
-    records = _json_records(payload)
+    cooldown_hours = int(parameters.get("notification_cooldown_hours", 72))
+    alert_id_prefix = _safe_alert_component(
+        parameters.get("alert_id_prefix", "CALIBER-SIM")
+    )
+    equipment_filter = ",".join(
+        sorted(payload["equipment_tag"].astype(str).unique())
+    )
+    earliest_date = pd.to_datetime(payload["predicted_at"]).min() - pd.Timedelta(
+        hours=cooldown_hours
+    )
+    cooldown_url = (
+        f"{rest_url}/{quote(table, safe='')}?"
+        "select=alert_id,equipment_tag,predicted_at,status"
+        f"&equipment_tag=in.({quote(equipment_filter, safe=',-')})"
+        f"&predicted_at=gte.{earliest_date:%Y-%m-%d}"
+        "&status=eq.Open"
+    )
+    existing_alerts = _request_json(
+        Request(
+            cooldown_url,
+            headers={**base_headers, "Accept-Profile": schema},
+            method="GET",
+        ),
+        timeout,
+    )
+    publishable, suppressed_ids = _filter_payload_for_cooldown(
+        payload,
+        existing_alerts,
+        cooldown_hours,
+        alert_id_prefix,
+    )
+    if publishable.empty:
+        return {
+            "schema_version": "1.1.0",
+            "published_at": generated_at,
+            "target_table": table,
+            "submitted_rows": int(len(payload)),
+            "upserted_rows": 0,
+            "verified_rows": 0,
+            "suppressed_by_cooldown": len(suppressed_ids),
+            "suppressed_alert_ids": suppressed_ids,
+            "alert_ids": [],
+            "notification_cooldown_hours": cooldown_hours,
+            "status": "COOLDOWN_SUPPRESSED",
+        }
+
+    records = _json_records(publishable)
     upsert_headers = {
         **base_headers,
         "Content-Type": "application/json",
@@ -245,7 +335,7 @@ def publish_predictions_to_supabase(
         timeout,
     )
 
-    alert_ids = payload["alert_id"].astype(str).tolist()
+    alert_ids = publishable["alert_id"].astype(str).tolist()
     id_filter = ",".join(alert_ids)
     verify_url = (
         f"{rest_url}/{quote(table, safe='')}?"
@@ -266,12 +356,16 @@ def publish_predictions_to_supabase(
             "Supabase verification did not return alert IDs: " + ", ".join(missing_ids)
         )
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "published_at": generated_at,
         "target_table": table,
-        "submitted_rows": len(records),
+        "submitted_rows": int(len(payload)),
+        "upserted_rows": len(records),
         "returned_rows": len(published),
         "verified_rows": len(verified_ids),
+        "suppressed_by_cooldown": len(suppressed_ids),
+        "suppressed_alert_ids": suppressed_ids,
         "alert_ids": alert_ids,
+        "notification_cooldown_hours": cooldown_hours,
         "status": "VERIFIED",
     }

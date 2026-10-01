@@ -1,0 +1,239 @@
+{
+  "schema_version": "2.0.0",
+  "generated_at": "2026-09-30T11:11:48.987988+00:00",
+  "scoring_timestamp": "2026-10-04T23:00:00",
+  "equipment_count": 20,
+  "plant_count": 9,
+  "risk_level_counts": {
+    "ACTION_NOW": 0,
+    "PLAN_MAINTENANCE": 2,
+    "DATA_QUALITY_REVIEW": 0,
+    "MONITOR": 1,
+    "NORMAL": 17
+  },
+  "alert_7d_count": 0,
+  "alert_30d_count": 2,
+  "stale_equipment_count": 0,
+  "data_quality_review_count": 0,
+  "data_quality_publish_blocked_count": 0,
+  "source_timezone": "Asia/Jakarta",
+  "source_age_hours": -100.80310163555555,
+  "source_time_status": "SYNTHETIC_DEMO_SNAPSHOT",
+  "dataset_mode": "synthetic_demo",
+  "synthetic_snapshot_note": "Data sampai 4 Oktober 2026 adalah data sintetis untuk simulasi, bukan telemetry real-time.",
+  "alert_persistence": {
+    "lookback_hours": 6,
+    "minimum_hits": 3,
+    "require_latest": true
+  },
+  "data_quality_guardrail": {
+    "enabled": true,
+    "review_count": 0,
+    "publish_blocked_count": 0,
+    "status_on_failure": "DATA_QUALITY_REVIEW"
+  },
+  "label_quality": {
+    "schema_version": "1.0.0",
+    "generated_at": "2026-09-30T01:57:45.474233+00:00",
+    "reference_timestamp": "2026-09-30T08:57:44.881004",
+    "source_timezone": "Asia/Jakarta",
+    "dataset_mode": "synthetic_demo",
+    "future_observations_expected": true,
+    "quality_status": "WARN",
+    "row_count": 527520,
+    "equipment_count": 20,
+    "observation_start": "2023-10-02T00:00:00",
+    "observation_end": "2026-10-04T23:00:00",
+    "event_count": 43,
+    "rca_verified_event_count": 5,
+    "non_rca_verified_event_count": 38,
+    "source_event_counts": {
+      "supabase_incident": 23,
+      "canonical_supabase_incident": 15,
+      "rca_document": 5
+    },
+    "future_observation_rows": 2220,
+    "future_event_count": 0,
+    "duplicate_key_rows": 0,
+    "missing_key_rows": 0,
+    "non_hourly_gap_count": 0,
+    "label_domain_errors": 0,
+    "label_monotonicity_errors": 0,
+    "days_to_failure_mismatch_rows": 0,
+    "recovery_window_rows": 3116,
+    "censored_rows": {
+      "7d": 6476,
+      "30d": 17516
+    },
+    "positive_rows": {
+      "7d": 7224,
+      "30d": 30960
+    },
+    "failures": [],
+    "warnings": [
+      "Only 5 of 43 events are RCA-verified"
+    ],
+    "information": [
+      "2220 observations after the audit reference time are accepted as an explicitly declared synthetic demo snapshot"
+    ]
+  },
+  "split_policy": {
+    "mode": "chronological_percentage_search_with_rolling_calibration",
+    "selected_candidate": "57.5_22.5_20",
+    "train_fraction": 0.575,
+    "validation_fraction": 0.225,
+    "test_fraction": 0.2,
+    "validation_start": "2025-06-24T22:00:00",
+    "test_start": "2026-02-27T04:00:00",
+    "purge_gap_equals_horizon": true,
+    "holdout_rca_equipment_from_training": true,
+    "selection_metric": "mean_validation_f1_7d_30d",
+    "threshold_metric": "rolling_backtest_operational_constraints",
+    "rolling_folds": 3,
+    "alert_persistence": {
+      "lookback_hours": 6,
+      "minimum_hits": 3,
+      "require_latest": true
+    },
+    "final_model_fit_on_all_pretest_rows": true,
+    "test_metrics_used_for_selection": false
+  },
+  "models": {
+    "7d": {
+      "trained_at": "2026-09-29T11:20:07.946444+00:00",
+      "threshold": 0.9906382963156701,
+      "action_threshold": 0.9906382963156701,
+      "warning_threshold": 0.9440525987887383,
+      "feature_count": 80,
+      "release_status": "INSPECTION_PRIORITY_BASELINE",
+      "threshold_calibration": {
+        "action": {
+          "threshold_kind": "action",
+          "threshold": 0.9906382963156701,
+          "selection_basis": "all_constraints_met",
+          "constraints_met": true,
+          "event_and_lead_constraints_met": true,
+          "false_alert_limit_met": true,
+          "false_alert_day_limit_met": true,
+          "false_alert_episode_limit_met": true,
+          "false_alert_metric": "days",
+          "selection_dataset": "rolling_validation_only",
+          "final_test_locked_for_selection": true,
+          "constraints": {
+            "minimum_event_recall": 0.8,
+            "minimum_median_warning_days": 1.0,
+            "maximum_false_alert_days_per_equipment_month": 1.0,
+            "maximum_false_alert_episodes_per_equipment_month": Infinity
+          },
+          "metrics": {
+            "precision": 0.6728358208955224,
+            "recall": 0.37219286657859973,
+            "f1": 0.4792685519880927,
+            "event_recall": 0.8421052631578947,
+            "median_earliest_warning_days": 3.3629977703094482,
+            "false_alert_days_per_equipment_month": 0.1368625014791149,
+            "false_alert_episodes_per_equipment_month": 0.09004111939415455
+          }
+        },
+        "warning": {
+          "threshold_kind": "warning",
+          "threshold": 0.9440525987887383,
+          "selection_basis": "all_constraints_met",
+          "constraints_met": true,
+          "event_and_lead_constraints_met": true,
+          "false_alert_limit_met": true,
+          "false_alert_day_limit_met": true,
+          "false_alert_episode_limit_met": true,
+          "false_alert_metric": "days",
+          "selection_dataset": "rolling_validation_only",
+          "final_test_locked_for_selection": true,
+          "constraints": {
+            "minimum_event_recall": 0.9,
+            "minimum_median_warning_days": 2.0,
+            "maximum_false_alert_days_per_equipment_month": 2.0,
+            "maximum_false_alert_episodes_per_equipment_month": Infinity
+          },
+          "metrics": {
+            "precision": 0.2773876404494382,
+            "recall": 0.5217965653896962,
+            "f1": 0.3622191655204035,
+            "event_recall": 0.9473684210526315,
+            "median_earliest_warning_days": 4.362997531890869,
+            "false_alert_days_per_equipment_month": 0.8571914566323513,
+            "false_alert_episodes_per_equipment_month": 0.23410691042480183
+          }
+        }
+      }
+    },
+    "30d": {
+      "trained_at": "2026-09-29T11:20:07.946444+00:00",
+      "threshold": 0.11882592678070081,
+      "action_threshold": 0.11882592678070081,
+      "warning_threshold": 0.0009173704963177786,
+      "feature_count": 80,
+      "release_status": "EXPERIMENTAL",
+      "threshold_calibration": {
+        "action": {
+          "threshold_kind": "action",
+          "threshold": 0.11882592678070081,
+          "selection_basis": "event_and_lead_met_false_alert_limit_relaxed",
+          "constraints_met": false,
+          "event_and_lead_constraints_met": true,
+          "false_alert_limit_met": false,
+          "false_alert_day_limit_met": false,
+          "false_alert_episode_limit_met": true,
+          "false_alert_metric": "episodes",
+          "selection_dataset": "rolling_validation_only",
+          "final_test_locked_for_selection": true,
+          "constraints": {
+            "minimum_event_recall": 0.8,
+            "minimum_median_warning_days": 7.0,
+            "maximum_false_alert_days_per_equipment_month": 1.5,
+            "maximum_false_alert_episodes_per_equipment_month": 0.1
+          },
+          "metrics": {
+            "precision": 0.30917891846981904,
+            "recall": 0.6914128766459327,
+            "f1": 0.42728770405870903,
+            "event_recall": 0.8095238095238095,
+            "median_earliest_warning_days": 29.97428321838379,
+            "false_alert_days_per_equipment_month": 3.4360222768894353,
+            "false_alert_episodes_per_equipment_month": 0.05823766570999043
+          }
+        },
+        "warning": {
+          "threshold_kind": "warning",
+          "threshold": 0.0009173704963177786,
+          "selection_basis": "event_and_lead_met_false_alert_limit_relaxed",
+          "constraints_met": false,
+          "event_and_lead_constraints_met": true,
+          "false_alert_limit_met": false,
+          "false_alert_day_limit_met": false,
+          "false_alert_episode_limit_met": true,
+          "false_alert_metric": "episodes",
+          "selection_dataset": "rolling_validation_only",
+          "final_test_locked_for_selection": true,
+          "constraints": {
+            "minimum_event_recall": 0.9,
+            "minimum_median_warning_days": 14.0,
+            "maximum_false_alert_days_per_equipment_month": 3.0,
+            "maximum_false_alert_episodes_per_equipment_month": 0.35
+          },
+          "metrics": {
+            "precision": 0.29781664767653127,
+            "recall": 0.7812424266903627,
+            "f1": 0.4312405243913315,
+            "event_recall": 0.9523809523809523,
+            "median_earliest_warning_days": 29.967952728271484,
+            "false_alert_days_per_equipment_month": 4.459341260079268,
+            "false_alert_episodes_per_equipment_month": 0.3369464944649446
+          }
+        }
+      }
+    }
+  },
+  "interpretation": {
+    "probabilities": "Uncalibrated model scores; do not interpret as literal risk percentages.",
+    "largest_recent_deviation": "Context signal only; it is not a causal model explanation."
+  }
+}

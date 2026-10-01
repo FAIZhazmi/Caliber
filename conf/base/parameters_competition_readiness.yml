@@ -1,0 +1,20 @@
+competition_readiness:
+  alert_episode:
+    reset_after_clear_hours: 24
+    notification_cooldown_hours: 72
+  robustness:
+    random_state: 2026
+    minimum_status_retention: 0.80
+    scenarios:
+      - {name: "sensor_noise_5pct", kind: "sensor_noise", magnitude: 0.05}
+      - {name: "current_sensor_outage", kind: "current_sensor_outage"}
+      - {name: "feature_dropout_10pct", kind: "feature_dropout", fraction: 0.10}
+      - {name: "operating_shift_plus_10pct", kind: "operating_shift", magnitude: 0.10}
+  shap:
+    random_state: 2026
+    permutations: 24
+    top_features_per_equipment: 5
+    global_top_features: 12
+  documents:
+    competition_name: "Chandra Asri Innovation Competition"
+    system_name: "CALIBER Predictive Maintenance"

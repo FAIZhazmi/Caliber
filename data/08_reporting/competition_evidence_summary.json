@@ -1,0 +1,296 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-09-30T11:20:03.314990+00:00",
+  "prototype_class": "competition_decision_support",
+  "dataset_mode": "synthetic_demo",
+  "current_risk_level_counts": {
+    "ACTION_NOW": 0,
+    "PLAN_MAINTENANCE": 2,
+    "DATA_QUALITY_REVIEW": 0,
+    "MONITOR": 1,
+    "NORMAL": 17
+  },
+  "episode_policy": {
+    "reset_after_clear_hours": 24,
+    "notification_cooldown_hours": 72,
+    "interpretation": "One recurring signal is one episode; cooldown can suppress a notification but does not change model scores."
+  },
+  "test_action_episode_metrics": {
+    "7d": {
+      "episodes": 23,
+      "true_episodes": 10,
+      "false_episodes": 13,
+      "episode_precision": 0.43478260869565216,
+      "notifications_sent": 22,
+      "notifications_suppressed_by_cooldown": 1,
+      "false_notifications": 12,
+      "false_episodes_per_equipment_month": 0.09341064683663834,
+      "false_notifications_per_equipment_month": 0.08622521246458924,
+      "events": 10,
+      "detected_events": 10,
+      "event_recall": 1.0,
+      "median_earliest_warning_days": 2.6730902194976807,
+      "exposure_equipment_months": 139.17043121149896
+    },
+    "30d": {
+      "episodes": 18,
+      "true_episodes": 10,
+      "false_episodes": 8,
+      "episode_precision": 0.5555555555555556,
+      "notifications_sent": 17,
+      "notifications_suppressed_by_cooldown": 1,
+      "false_notifications": 8,
+      "false_episodes_per_equipment_month": 0.06448622881355932,
+      "false_notifications_per_equipment_month": 0.06448622881355932,
+      "events": 10,
+      "detected_events": 10,
+      "event_recall": 1.0,
+      "median_earliest_warning_days": 29.9855899810791,
+      "exposure_equipment_months": 124.05749486652978
+    }
+  },
+  "robustness": {
+    "schema_version": "1.0.0",
+    "generated_at": "2026-09-30T11:20:03.216109+00:00",
+    "test_scope": "latest synthetic snapshot feature-space stress test",
+    "uses_failure_ground_truth": false,
+    "random_state": 2026,
+    "guardrail": {
+      "minimum_status_retention": 0.8,
+      "maximum_urgent_alert_loss": 0,
+      "maximum_unsafe_urgent_alert_gain": 0,
+      "policy": "Perturbed inputs may be held as DATA_QUALITY_REVIEW; only unblocked urgent gains/losses fail the safety guardrail."
+    },
+    "scenarios": [
+      {
+        "scenario": "sensor_noise_5pct",
+        "kind": "sensor_noise",
+        "equipment_count": 20,
+        "status_retention": 0.0,
+        "safe_status_retention": 1.0,
+        "status_change_count": 20,
+        "urgent_alert_lost": 0,
+        "urgent_alert_gained": 0,
+        "unsafe_urgent_alert_gained": 0,
+        "data_quality_review_count": 20,
+        "urgent_alert_held_for_quality_review": 2,
+        "unreviewed_status_change_count": 0,
+        "risk_rank_correlation": 0.6721804511278194,
+        "mean_absolute_score_change_7d": 0.019560396671295166,
+        "maximum_absolute_score_change_7d": 0.36458078026771545,
+        "mean_absolute_score_change_30d": 0.012342536821961403,
+        "maximum_absolute_score_change_30d": 0.1465865969657898,
+        "stability_target_met": false,
+        "guardrail_passed": true
+      },
+      {
+        "scenario": "current_sensor_outage",
+        "kind": "current_sensor_outage",
+        "equipment_count": 20,
+        "status_retention": 0.0,
+        "safe_status_retention": 1.0,
+        "status_change_count": 20,
+        "urgent_alert_lost": 0,
+        "urgent_alert_gained": 0,
+        "unsafe_urgent_alert_gained": 0,
+        "data_quality_review_count": 20,
+        "urgent_alert_held_for_quality_review": 2,
+        "unreviewed_status_change_count": 0,
+        "risk_rank_correlation": 0.9759398496240601,
+        "mean_absolute_score_change_7d": 7.897535283518664e-07,
+        "maximum_absolute_score_change_7d": 9.757372026797384e-06,
+        "mean_absolute_score_change_30d": 0.0001103592076105997,
+        "maximum_absolute_score_change_30d": 0.0015743374824523926,
+        "stability_target_met": false,
+        "guardrail_passed": true
+      },
+      {
+        "scenario": "feature_dropout_10pct",
+        "kind": "feature_dropout",
+        "equipment_count": 20,
+        "status_retention": 0.0,
+        "safe_status_retention": 1.0,
+        "status_change_count": 20,
+        "urgent_alert_lost": 0,
+        "urgent_alert_gained": 0,
+        "unsafe_urgent_alert_gained": 0,
+        "data_quality_review_count": 20,
+        "urgent_alert_held_for_quality_review": 2,
+        "unreviewed_status_change_count": 0,
+        "risk_rank_correlation": 0.7864661654135338,
+        "mean_absolute_score_change_7d": 0.08006501942873001,
+        "maximum_absolute_score_change_7d": 0.968963623046875,
+        "mean_absolute_score_change_30d": 0.057775795459747314,
+        "maximum_absolute_score_change_30d": 0.7834610342979431,
+        "stability_target_met": false,
+        "guardrail_passed": true
+      },
+      {
+        "scenario": "operating_shift_plus_10pct",
+        "kind": "operating_shift",
+        "equipment_count": 20,
+        "status_retention": 0.0,
+        "safe_status_retention": 1.0,
+        "status_change_count": 20,
+        "urgent_alert_lost": 0,
+        "urgent_alert_gained": 0,
+        "unsafe_urgent_alert_gained": 0,
+        "data_quality_review_count": 20,
+        "urgent_alert_held_for_quality_review": 2,
+        "unreviewed_status_change_count": 0,
+        "risk_rank_correlation": 0.7398496240601502,
+        "mean_absolute_score_change_7d": 0.06777768582105637,
+        "maximum_absolute_score_change_7d": 0.9661468267440796,
+        "mean_absolute_score_change_30d": 0.43534523248672485,
+        "maximum_absolute_score_change_30d": 0.9978082180023193,
+        "stability_target_met": false,
+        "guardrail_passed": true
+      }
+    ],
+    "all_scenarios_passed": true,
+    "all_scenarios_stable": false,
+    "limitation": "This measures prediction stability on a synthetic snapshot, not real-world failure accuracy."
+  },
+  "shap": {
+    "method": "model_agnostic_permutation_shap",
+    "explained_output": "raw decision_function score",
+    "background": "120 rows from the latest six-hour synthetic snapshot cohort",
+    "global_top_features": {
+      "7d": [
+        {
+          "feature": "vibration_mean_168h",
+          "feature_group": "vibration",
+          "mean_absolute_shap": 1.5046486128438712
+        },
+        {
+          "feature": "temperature_mean_168h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 1.3958672360774416
+        },
+        {
+          "feature": "vibration_mean_24h",
+          "feature_group": "vibration",
+          "mean_absolute_shap": 0.9336325834623874
+        },
+        {
+          "feature": "discharge_pressure_mean_168h",
+          "feature_group": "discharge_pressure",
+          "mean_absolute_shap": 0.4726289931594117
+        },
+        {
+          "feature": "temperature_mean_24h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 0.2783623406317488
+        },
+        {
+          "feature": "vibration_std_168h",
+          "feature_group": "vibration",
+          "mean_absolute_shap": 0.2612691832518683
+        },
+        {
+          "feature": "feed_rate_std_168h",
+          "feature_group": "feed_rate",
+          "mean_absolute_shap": 0.2134781749331641
+        },
+        {
+          "feature": "discharge_pressure_mean_24h",
+          "feature_group": "discharge_pressure",
+          "mean_absolute_shap": 0.1150731943353596
+        },
+        {
+          "feature": "feed_rate_mean_168h",
+          "feature_group": "feed_rate",
+          "mean_absolute_shap": 0.11327534449417831
+        },
+        {
+          "feature": "motor_ampere_mean_168h",
+          "feature_group": "motor_ampere",
+          "mean_absolute_shap": 0.0755683734466164
+        },
+        {
+          "feature": "temperature_std_168h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 0.0733621593827245
+        },
+        {
+          "feature": "temperature_zscore_168h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 0.06630863222503962
+        }
+      ],
+      "30d": [
+        {
+          "feature": "vibration_mean_168h",
+          "feature_group": "vibration",
+          "mean_absolute_shap": 2.0381843074978523
+        },
+        {
+          "feature": "temperature_mean_168h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 1.6610684492397065
+        },
+        {
+          "feature": "temperature_mean_24h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 0.9955218089016757
+        },
+        {
+          "feature": "vibration_mean_24h",
+          "feature_group": "vibration",
+          "mean_absolute_shap": 0.8704290838373876
+        },
+        {
+          "feature": "discharge_pressure_mean_168h",
+          "feature_group": "discharge_pressure",
+          "mean_absolute_shap": 0.7219240940161701
+        },
+        {
+          "feature": "plant_rate_std_168h",
+          "feature_group": "plant_rate",
+          "mean_absolute_shap": 0.2594394137184607
+        },
+        {
+          "feature": "vibration_std_168h",
+          "feature_group": "vibration",
+          "mean_absolute_shap": 0.2323807972848849
+        },
+        {
+          "feature": "feed_rate_std_168h",
+          "feature_group": "feed_rate",
+          "mean_absolute_shap": 0.2219333741836059
+        },
+        {
+          "feature": "feed_rate_mean_24h",
+          "feature_group": "feed_rate",
+          "mean_absolute_shap": 0.20462651415679628
+        },
+        {
+          "feature": "temperature_std_168h",
+          "feature_group": "temperature",
+          "mean_absolute_shap": 0.18867983007493144
+        },
+        {
+          "feature": "discharge_pressure_mean_24h",
+          "feature_group": "discharge_pressure",
+          "mean_absolute_shap": 0.16747149329247135
+        },
+        {
+          "feature": "feed_rate_mean_168h",
+          "feature_group": "feed_rate",
+          "mean_absolute_shap": 0.1638174022369419
+        }
+      ]
+    }
+  },
+  "release_recommendation": {
+    "7d": "inspection prioritisation prototype",
+    "30d": "experimental early warning only"
+  },
+  "limitations": [
+    "synthetic demo data",
+    "only 5 of 43 events are RCA-verified",
+    "uncalibrated model scores",
+    "30-day false-alert-day guardrail not met",
+    "no plant SME validation"
+  ]
+}

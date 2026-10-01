@@ -1,0 +1,1698 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-09-30T11:19:59.789793+00:00",
+  "method": "model_agnostic_permutation_shap",
+  "explained_output": "raw decision_function score",
+  "background": "120 rows from the latest six-hour synthetic snapshot cohort",
+  "permutations_per_equipment_horizon": 24,
+  "additivity_maximum_absolute_error": 2.220446049250313e-15,
+  "global_top_features": {
+    "7d": [
+      {
+        "feature": "vibration_mean_168h",
+        "feature_group": "vibration",
+        "mean_absolute_shap": 1.5046486128438712
+      },
+      {
+        "feature": "temperature_mean_168h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 1.3958672360774416
+      },
+      {
+        "feature": "vibration_mean_24h",
+        "feature_group": "vibration",
+        "mean_absolute_shap": 0.9336325834623874
+      },
+      {
+        "feature": "discharge_pressure_mean_168h",
+        "feature_group": "discharge_pressure",
+        "mean_absolute_shap": 0.4726289931594117
+      },
+      {
+        "feature": "temperature_mean_24h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 0.2783623406317488
+      },
+      {
+        "feature": "vibration_std_168h",
+        "feature_group": "vibration",
+        "mean_absolute_shap": 0.2612691832518683
+      },
+      {
+        "feature": "feed_rate_std_168h",
+        "feature_group": "feed_rate",
+        "mean_absolute_shap": 0.2134781749331641
+      },
+      {
+        "feature": "discharge_pressure_mean_24h",
+        "feature_group": "discharge_pressure",
+        "mean_absolute_shap": 0.1150731943353596
+      },
+      {
+        "feature": "feed_rate_mean_168h",
+        "feature_group": "feed_rate",
+        "mean_absolute_shap": 0.11327534449417831
+      },
+      {
+        "feature": "motor_ampere_mean_168h",
+        "feature_group": "motor_ampere",
+        "mean_absolute_shap": 0.0755683734466164
+      },
+      {
+        "feature": "temperature_std_168h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 0.0733621593827245
+      },
+      {
+        "feature": "temperature_zscore_168h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 0.06630863222503962
+      }
+    ],
+    "30d": [
+      {
+        "feature": "vibration_mean_168h",
+        "feature_group": "vibration",
+        "mean_absolute_shap": 2.0381843074978523
+      },
+      {
+        "feature": "temperature_mean_168h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 1.6610684492397065
+      },
+      {
+        "feature": "temperature_mean_24h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 0.9955218089016757
+      },
+      {
+        "feature": "vibration_mean_24h",
+        "feature_group": "vibration",
+        "mean_absolute_shap": 0.8704290838373876
+      },
+      {
+        "feature": "discharge_pressure_mean_168h",
+        "feature_group": "discharge_pressure",
+        "mean_absolute_shap": 0.7219240940161701
+      },
+      {
+        "feature": "plant_rate_std_168h",
+        "feature_group": "plant_rate",
+        "mean_absolute_shap": 0.2594394137184607
+      },
+      {
+        "feature": "vibration_std_168h",
+        "feature_group": "vibration",
+        "mean_absolute_shap": 0.2323807972848849
+      },
+      {
+        "feature": "feed_rate_std_168h",
+        "feature_group": "feed_rate",
+        "mean_absolute_shap": 0.2219333741836059
+      },
+      {
+        "feature": "feed_rate_mean_24h",
+        "feature_group": "feed_rate",
+        "mean_absolute_shap": 0.20462651415679628
+      },
+      {
+        "feature": "temperature_std_168h",
+        "feature_group": "temperature",
+        "mean_absolute_shap": 0.18867983007493144
+      },
+      {
+        "feature": "discharge_pressure_mean_24h",
+        "feature_group": "discharge_pressure",
+        "mean_absolute_shap": 0.16747149329247135
+      },
+      {
+        "feature": "feed_rate_mean_168h",
+        "feature_group": "feed_rate",
+        "mean_absolute_shap": 0.1638174022369419
+      }
+    ]
+  },
+  "equipment": {
+    "PM-4405B": {
+      "7d": {
+        "model_score": 0.9794203639030457,
+        "raw_model_output": 3.8626600901431565,
+        "base_raw_output": -8.631230634563302,
+        "reconstruction_error": 2.220446049250313e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 6.827847465224622,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 2.382377211881741,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.8681363898272867,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.8546932668283328,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.5896599299091424,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.9993075132369995,
+        "raw_model_output": 7.274549902915465,
+        "base_raw_output": -7.6743435623629965,
+        "reconstruction_error": 8.881784197001252e-16,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 6.085975745569318,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 3.0444492397228693,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 2.1542131920154097,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 1.7404763296714192,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration",
+            "feature_group": "vibration",
+            "shap_value": 0.35623683288041796,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "BL-5702": {
+      "7d": {
+        "model_score": 0.8377102017402649,
+        "raw_model_output": 1.6412884581804161,
+        "base_raw_output": -7.410955930077169,
+        "reconstruction_error": 4.440892098500626e-16,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 4.413862399806128,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 2.37225738694361,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 1.4569424648368872,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.9478394849217581,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.6121762672433686,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.9983186721801758,
+        "raw_model_output": 6.3864917618607695,
+        "base_raw_output": -7.8328868494413095,
+        "reconstruction_error": 8.881784197001252e-16,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 7.365181944552216,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 2.511999479131547,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.2234493545943483,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.8704974150227618,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "feed_rate_mean_24h",
+            "feature_group": "feed_rate",
+            "shap_value": 0.3921849445676609,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "HE-3301": {
+      "7d": {
+        "model_score": 3.938459121854976e-05,
+        "raw_model_output": -10.142096482051429,
+        "base_raw_output": -8.746909677405887,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.6663193540784,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.8713189369997903,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.4801558574655423,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.4324730645755214,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_24h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.17763845816829824,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.018046744167804718,
+        "raw_model_output": -3.99657845423115,
+        "base_raw_output": -7.882139011392192,
+        "reconstruction_error": 8.881784197001252e-16,
+        "top_features": [
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 1.8260596057354939,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.259603934612784,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.8638006176796301,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.8097218440299595,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.7101878168871266,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "HE-4966C": {
+      "7d": {
+        "model_score": 4.3689484300557524e-05,
+        "raw_model_output": -10.03835940223021,
+        "base_raw_output": -9.14082398669249,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -2.3152599132961167,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.6269881971059246,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.4970146798946269,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.4678584197081445,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.34441782622400413,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.00031994233722798526,
+        "raw_model_output": -8.047049735683009,
+        "base_raw_output": -7.980983949379951,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 2.714820051931809,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -2.4603623821125313,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 1.1712341513341624,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_std_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.8676281250882528,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "feed_rate_mean_168h",
+            "feature_group": "feed_rate",
+            "shap_value": -0.7071872139600507,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "PM-3818A": {
+      "7d": {
+        "model_score": 7.177591760409996e-05,
+        "raw_model_output": -9.541889731214809,
+        "base_raw_output": -8.726995023653886,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.5162266547367036,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 0.30771921033332306,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.30261801856449494,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.28271432785350176,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 0.25466139184078257,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.0003177486942149699,
+        "raw_model_output": -8.05393200138902,
+        "base_raw_output": -6.059748522575371,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -1.1004375582684933,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.7269122214429139,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_24h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.5372573125623418,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "co2_ton",
+            "feature_group": "environment",
+            "shap_value": -0.4363332167595179,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_std_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.34699080500620444,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "TX-6085B": {
+      "7d": {
+        "model_score": 4.0168586565414444e-05,
+        "raw_model_output": -10.122385121483557,
+        "base_raw_output": -7.71636477195036,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -2.6772723660981668,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.3705015471264679,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.1549357171734738,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_168h",
+            "feature_group": "feed_rate",
+            "shap_value": -0.4813910008695548,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.23789188052377697,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.0002877685765270144,
+        "raw_model_output": -8.153066147791666,
+        "base_raw_output": -7.4746940227450835,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.823698425233463,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.7967546210257606,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.9465986402770655,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.5853479102154431,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_std_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.4638821913999906,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "FN-8488C": {
+      "7d": {
+        "model_score": 5.543348743231036e-05,
+        "raw_model_output": -9.800271235887582,
+        "base_raw_output": -8.1660126525191,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.0362418662036272,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.9102755606829089,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.4496921557185649,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_168h",
+            "feature_group": "feed_rate",
+            "shap_value": 0.25224831349224197,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.23242382497465056,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.0002560522698331624,
+        "raw_model_output": -8.26987282555839,
+        "base_raw_output": -8.184177870474405,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.1478557245894918,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.843656113659275,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.8274254894277765,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.7221430397506362,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.35310621063008174,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "PM-4639": {
+      "7d": {
+        "model_score": 7.931367872515693e-05,
+        "raw_model_output": -9.442020677040198,
+        "base_raw_output": -9.013962781366686,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 2.089597621956362,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.2057646259061645,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.7326016038754197,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.4690043573420921,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.46489075651713757,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.00020460644736886024,
+        "raw_model_output": -8.494217530998394,
+        "base_raw_output": -7.096774932344101,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -3.524074475749853,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 2.523264629654685,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 1.4713494255572839,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.0764817367605266,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.6250291004420041,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "SW-6175C": {
+      "7d": {
+        "model_score": 9.947547368938103e-05,
+        "raw_model_output": -9.215499960546182,
+        "base_raw_output": -9.080012920029922,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -1.826294148363516,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.562322828209666,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.3089945143511488,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 1.040361226957813,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "feed_rate_mean_168h",
+            "feature_group": "feed_rate",
+            "shap_value": -0.6136674501335083,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.00018946015916299075,
+        "raw_model_output": -8.571142353800392,
+        "base_raw_output": -5.282551054396069,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -4.825260284138315,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 2.6955205609419086,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -1.9643760247110678,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.9428640294490978,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_168h",
+            "feature_group": "feed_rate",
+            "shap_value": -1.4473265838099596,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "TK-6178A": {
+      "7d": {
+        "model_score": 4.199668546789326e-05,
+        "raw_model_output": -10.077877858907755,
+        "base_raw_output": -8.690371981953916,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.7777661524611631,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.4706810225398108,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.3222202192994154,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.29591585905377266,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -0.15917407176906492,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.0001788440131349489,
+        "raw_model_output": -8.628817713733778,
+        "base_raw_output": -7.390405508769018,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -2.4182533790906766,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.044461001154524,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "plant_rate_std_168h",
+            "feature_group": "plant_rate",
+            "shap_value": 0.9414401454117759,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.7969435372824233,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_24h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.35755025023072634,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "KO-3201": {
+      "7d": {
+        "model_score": 8.057189552346244e-05,
+        "raw_model_output": -9.426280062587711,
+        "base_raw_output": -9.130274622839513,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -1.6834661461877667,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.47868339140546884,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 0.4783190585124259,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 0.34868485069354666,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -0.30769483400404424,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.0001401585468556732,
+        "raw_model_output": -8.872596097053167,
+        "base_raw_output": -6.225011826956769,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -2.760713488153993,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -2.1464127227214775,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.2154765932184388,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 0.7062571290894768,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.38810973900261425,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "PM-1018A": {
+      "7d": {
+        "model_score": 0.00024157045118045062,
+        "raw_model_output": -8.328107814492125,
+        "base_raw_output": -7.323751064705058,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.8552100016939855,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_24h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.683041689459159,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 0.671533031939186,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.2540951574447621,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_std_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.23146456325026324,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 0.0001278720737900585,
+        "raw_model_output": -8.964352338956065,
+        "base_raw_output": -6.467353888124507,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -2.8511448589844988,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.537850217819976,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_24h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.8208085441624552,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.7430038137161525,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_std_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.5023795270278161,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "TR-7614": {
+      "7d": {
+        "model_score": 6.380261766025797e-05,
+        "raw_model_output": -9.659652524115325,
+        "base_raw_output": -9.175818514090217,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -1.6143107972637711,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.2102309517246024,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_168h",
+            "feature_group": "feed_rate",
+            "shap_value": -1.0308597428394153,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.0109103154754016,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_std_24h",
+            "feature_group": "vibration",
+            "shap_value": 0.3437746333660862,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 9.811556083150208e-05,
+        "raw_model_output": -9.22926647473311,
+        "base_raw_output": -5.697434213673408,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "feed_rate_mean_24h",
+            "feature_group": "feed_rate",
+            "shap_value": -1.952526437808703,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.4374690897958642,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "energy_per_rate_unit_proxy",
+            "feature_group": "energy",
+            "shap_value": -1.083643467742179,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "wastewater_m3",
+            "feature_group": "environment",
+            "shap_value": -0.7132240558832633,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 0.4923280305868358,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "KO-1107": {
+      "7d": {
+        "model_score": 3.9350707083940506e-05,
+        "raw_model_output": -10.142957307426531,
+        "base_raw_output": -7.109107451797075,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.9099861725312655,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.9223434248394401,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "motor_ampere_mean_168h",
+            "feature_group": "motor_ampere",
+            "shap_value": 0.11906420820803976,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "power_kw_mean_168h",
+            "feature_group": "power_kw",
+            "shap_value": 0.11078184108164561,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.07061272126608127,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 9.806614980334416e-05,
+        "raw_model_output": -9.229770272952042,
+        "base_raw_output": -8.05875418299623,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.8828091656052856,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "plant_rate_std_168h",
+            "feature_group": "plant_rate",
+            "shap_value": -0.5783135864693224,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.4413654666332086,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.37301846865610716,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.37151893399409924,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "TK-7586B": {
+      "7d": {
+        "model_score": 4.037900725961663e-05,
+        "raw_model_output": -10.11716011788343,
+        "base_raw_output": -7.50671382752293,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -2.8966767652798002,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.562323756862314,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.7389570206279417,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.6908289125636546,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_24h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.2798634288994794,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 8.972237992566079e-05,
+        "raw_model_output": -9.318700621739197,
+        "base_raw_output": -7.5747722002182805,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.9915482111104998,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -1.1117282068331062,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.47888065339058633,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.4368548026616119,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.3618950705392577,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "TX-5187B": {
+      "7d": {
+        "model_score": 8.423163671977818e-05,
+        "raw_model_output": -9.381855697353883,
+        "base_raw_output": -8.038507492455748,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -3.756222814753077,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.9677782205910977,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 0.9312641596608184,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 0.707886364762949,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -0.640770409881065,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 8.130403875838965e-05,
+        "raw_model_output": -9.417233531111975,
+        "base_raw_output": -8.859347897180342,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -3.1674688149193444,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -2.168260278655531,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 1.6604602420370378,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 1.3998933241897282,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.8461764468291464,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "TR-3696": {
+      "7d": {
+        "model_score": 3.933537664124742e-05,
+        "raw_model_output": -10.143346966327783,
+        "base_raw_output": -9.20656516532278,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.6375445743971117,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.5314661534466253,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.32685112745363953,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "feed_rate_mean_168h",
+            "feature_group": "feed_rate",
+            "shap_value": -0.13697494173403346,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.1211529945086654,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 7.195015496108681e-05,
+        "raw_model_output": -9.539465034536754,
+        "base_raw_output": -7.95642492291379,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": 1.3162034399834506,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "plant_rate_std_168h",
+            "feature_group": "plant_rate",
+            "shap_value": -1.0269734519316336,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": -0.9835128268351854,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": 0.8422031637857504,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.7949135446571017,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "PU-2101B": {
+      "7d": {
+        "model_score": 5.534319643629715e-05,
+        "raw_model_output": -9.801901486946555,
+        "base_raw_output": -8.586944116933138,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.5246039626519384,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.42611752328861335,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.4142374064916146,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_168h",
+            "feature_group": "feed_rate",
+            "shap_value": 0.28959529091084085,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_zscore_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.08648017966557482,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 6.776602094760165e-05,
+        "raw_model_output": -9.599381852179027,
+        "base_raw_output": -5.378085893763493,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -1.6024737930440187,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.9123627589724498,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -0.7135621931763744,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.47132402225381637,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.20840776818812987,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      }
+    },
+    "AZ-6656C": {
+      "7d": {
+        "model_score": 5.8593064750311896e-05,
+        "raw_model_output": -9.744835631555866,
+        "base_raw_output": -8.178679639164285,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -4.806107724335037,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 2.080493241434,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 1.422927128868647,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "discharge_pressure_mean_168h",
+            "feature_group": "discharge_pressure",
+            "shap_value": 0.7536803428542896,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -0.6584142175560149,
+            "direction": "lowers_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 6.260436202865094e-05,
+        "raw_model_output": -9.67861299709091,
+        "base_raw_output": -7.403494963229861,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -3.2578982559777185,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -2.4773071024998417,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": 1.2520935305532837,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "plant_rate_std_168h",
+            "feature_group": "plant_rate",
+            "shap_value": 0.7127145590117099,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": 0.7126452385874232,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    },
+    "TR-6283A": {
+      "7d": {
+        "model_score": 4.245005038683303e-05,
+        "raw_model_output": -10.067139983472794,
+        "base_raw_output": -9.760586540278164,
+        "reconstruction_error": 1.7763568394002505e-15,
+        "top_features": [
+          {
+            "feature": "vibration_mean_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.38542388741564954,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_std_168h",
+            "feature_group": "temperature",
+            "shap_value": 0.126895250049469,
+            "direction": "raises_raw_score"
+          },
+          {
+            "feature": "temperature_zscore_168h",
+            "feature_group": "temperature",
+            "shap_value": -0.07658319298176315,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_24h",
+            "feature_group": "vibration",
+            "shap_value": -0.057576862242416725,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_24h",
+            "feature_group": "feed_rate",
+            "shap_value": 0.0461374273047224,
+            "direction": "raises_raw_score"
+          }
+        ]
+      },
+      "30d": {
+        "model_score": 5.340256029739976e-05,
+        "raw_model_output": -9.837598440106946,
+        "base_raw_output": -5.9029737241148545,
+        "reconstruction_error": 0.0,
+        "top_features": [
+          {
+            "feature": "temperature_mean_168h",
+            "feature_group": "temperature",
+            "shap_value": -1.4445309688183625,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "temperature_mean_24h",
+            "feature_group": "temperature",
+            "shap_value": -1.1634169586628558,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_mean_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.8961468419732507,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "vibration_std_168h",
+            "feature_group": "vibration",
+            "shap_value": -0.36002750795550176,
+            "direction": "lowers_raw_score"
+          },
+          {
+            "feature": "feed_rate_std_168h",
+            "feature_group": "feed_rate",
+            "shap_value": 0.2389606866850038,
+            "direction": "raises_raw_score"
+          }
+        ]
+      }
+    }
+  },
+  "interpretation": "SHAP values explain model-score movement relative to the recent background cohort. They do not prove physical root cause."
+}

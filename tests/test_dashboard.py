@@ -11,9 +11,37 @@ from dashboard.data import (
     filter_equipment_risk,
     load_dashboard_data,
 )
+from dashboard.executive_view import build_executive_priority
 
 
 class DashboardDataTests(unittest.TestCase):
+    def test_executive_priority_excludes_normal_and_hides_model_scores(self):
+        risk = pd.DataFrame(
+            {
+                "risk_rank": [1, 2],
+                "equipment_tag": ["P-1", "P-2"],
+                "plant": ["A", "A"],
+                "risk_level": ["PLAN_MAINTENANCE", "NORMAL"],
+                "recommended_action": ["Inspect", "Routine"],
+            }
+        )
+
+        priority = build_executive_priority(risk)
+
+        self.assertEqual(priority["Equipment"].tolist(), ["P-1"])
+        self.assertEqual(priority.loc[0, "Status"], "Rencanakan pemeliharaan")
+        self.assertEqual(
+            priority.columns.tolist(),
+            [
+                "Prioritas",
+                "Equipment",
+                "Plant",
+                "Status",
+                "Batas keputusan",
+                "Tindakan",
+            ],
+        )
+
     def test_filter_combines_scope_and_literal_search(self):
         risk = pd.DataFrame(
             {
@@ -92,6 +120,9 @@ class DashboardDataTests(unittest.TestCase):
                     "threshold_proximity_0_100": 100.0,
                     "recommended_action": "Inspect",
                     "source_time_status": "CURRENT_SOURCE_TIMESTAMP",
+                    "data_quality_status": "PASS",
+                    "data_quality_publish_allowed": True,
+                    "data_quality_reason": "Lulus guardrail",
                 }
             ]
         )
@@ -103,6 +134,7 @@ class DashboardDataTests(unittest.TestCase):
                     "equipment_count": 1,
                     "action_now_count": 1,
                     "plan_maintenance_count": 0,
+                    "data_quality_review_count": 0,
                     "monitor_count": 0,
                     "normal_count": 0,
                     "alert_7d_count": 1,

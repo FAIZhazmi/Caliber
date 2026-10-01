@@ -1,6 +1,7 @@
 prediction_publishing:
   alert_id_prefix: "CALIBER-SIM"
   published_status: "Open"
+  notification_cooldown_hours: 72
   publish_risk_levels: ["ACTION_NOW", "PLAN_MAINTENANCE", "MONITOR"]
   supabase:
     url: "https://xfazbvdakufbcqcqllqr.supabase.co/rest/v1"

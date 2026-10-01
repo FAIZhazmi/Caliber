@@ -19,7 +19,9 @@ from dashboard.data import (  # noqa: E402
     DashboardDataError,
     RISK_LEVELS,
     filter_equipment_risk,
+    load_competition_evidence,
     load_dashboard_data,
+    load_rca_rag_evidence,
 )
 
 
@@ -27,6 +29,7 @@ REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
 RISK_COLORS = {
     "ACTION_NOW": "#dc2626",
     "PLAN_MAINTENANCE": "#f97316",
+    "DATA_QUALITY_REVIEW": "#7c3aed",
     "MONITOR": "#eab308",
     "NORMAL": "#16a34a",
 }
@@ -35,6 +38,16 @@ RISK_COLORS = {
 @st.cache_data(ttl=60, show_spinner=False)
 def _cached_dashboard_data(path: str) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     return load_dashboard_data(Path(path))
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_competition_evidence(path: str) -> tuple[dict, pd.DataFrame]:
+    return load_competition_evidence(Path(path))
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_rca_rag_evidence(path: str) -> tuple[dict, pd.DataFrame]:
+    return load_rca_rag_evidence(Path(path))
 
 
 def _risk_donut(frame: pd.DataFrame) -> go.Figure:
@@ -72,6 +85,11 @@ def _plant_chart(plants: pd.DataFrame) -> go.Figure:
     for column, label, level in [
         ("action_now_count", "Action now", "ACTION_NOW"),
         ("plan_maintenance_count", "Plan maintenance", "PLAN_MAINTENANCE"),
+        (
+            "data_quality_review_count",
+            "Data quality review",
+            "DATA_QUALITY_REVIEW",
+        ),
         ("monitor_count", "Monitor", "MONITOR"),
         ("normal_count", "Normal", "NORMAL"),
     ]:
@@ -137,6 +155,31 @@ def _score_chart(row: pd.Series) -> go.Figure:
     return figure
 
 
+def _shap_chart(frame: pd.DataFrame) -> go.Figure:
+    display = frame.nsmallest(5, "shap_rank").sort_values("shap_value")
+    figure = go.Figure(
+        go.Bar(
+            x=display["shap_value"],
+            y=display["feature"].str.replace("_", " "),
+            orientation="h",
+            marker_color=[
+                "#dc2626" if value >= 0 else "#2563eb"
+                for value in display["shap_value"]
+            ],
+            hovertemplate="%{y}<br>SHAP raw score: %{x:.4f}<extra></extra>",
+        )
+    )
+    figure.update_layout(
+        height=290,
+        margin={"l": 12, "r": 12, "t": 20, "b": 12},
+        xaxis_title="Kontribusi ke skor mentah model",
+        yaxis_title=None,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return figure
+
+
 def _risk_table(frame: pd.DataFrame) -> None:
     columns = [
         "risk_rank",
@@ -181,8 +224,8 @@ def _risk_table(frame: pd.DataFrame) -> None:
 
 
 st.set_page_config(
-    page_title="CALIBER | Predictive Maintenance",
-    page_icon="⚙️",
+    page_title="CALIBER | ML Console",
+    page_icon="ML",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -219,6 +262,12 @@ try:
     equipment_risk, plant_summary, summary = _cached_dashboard_data(
         str(REPORTING_DIRECTORY)
     )
+    competition_evidence, shap_values = _cached_competition_evidence(
+        str(REPORTING_DIRECTORY)
+    )
+    rca_rag_summary, inspection_guidance = _cached_rca_rag_evidence(
+        str(REPORTING_DIRECTORY)
+    )
 except DashboardDataError as exc:
     st.error(str(exc))
     st.info("Jalankan pipeline reporting terlebih dahulu:")
@@ -231,7 +280,7 @@ except DashboardDataError as exc:
 
 with st.sidebar:
     st.markdown("## CALIBER")
-    st.caption("Predictive Maintenance Console")
+    st.caption("Machine Learning Console · Port 8502")
     if st.button("Muat ulang data", width="stretch"):
         st.cache_data.clear()
         st.rerun()
@@ -278,8 +327,8 @@ st.markdown(
     f"""
     <div class="caliber-header">
       <div class="caliber-kicker">ASSET INTELLIGENCE • CALIBER 2026</div>
-      <div class="caliber-title">Predictive Maintenance</div>
-      <p class="caliber-subtitle">Prioritas inspeksi berbasis risiko kegagalan 7 dan 30 hari •
+      <div class="caliber-title">Machine Learning Console</div>
+      <p class="caliber-subtitle">Evaluasi model, kualitas data, dan explainability 7/30 hari •
       Snapshot {snapshot.strftime('%d %b %Y %H:%M')}</p>
     </div>
     """,
@@ -315,13 +364,17 @@ if filtered.empty:
 urgent_count = int(
     filtered["risk_level"].isin(["ACTION_NOW", "PLAN_MAINTENANCE"]).sum()
 )
-kpi_columns = st.columns(6)
+kpi_columns = st.columns(7)
 kpi_columns[0].metric("Equipment", len(filtered), delta=f"dari {len(equipment_risk)}")
 kpi_columns[1].metric("Perlu tindakan", urgent_count)
-kpi_columns[2].metric("Monitor", int(filtered["risk_level"].eq("MONITOR").sum()))
-kpi_columns[3].metric("Alert 7 hari", int(filtered["alert_7d"].sum()))
-kpi_columns[4].metric("Alert 30 hari", int(filtered["alert_30d"].sum()))
-kpi_columns[5].metric("Plant terpilih", int(filtered["plant"].nunique()))
+kpi_columns[2].metric(
+    "Review data",
+    int(filtered["risk_level"].eq("DATA_QUALITY_REVIEW").sum()),
+)
+kpi_columns[3].metric("Monitor", int(filtered["risk_level"].eq("MONITOR").sum()))
+kpi_columns[4].metric("Alert 7 hari", int(filtered["alert_7d"].sum()))
+kpi_columns[5].metric("Alert 30 hari", int(filtered["alert_30d"].sum()))
+kpi_columns[6].metric("Plant terpilih", int(filtered["plant"].nunique()))
 
 overview_tab, equipment_tab, plant_tab, model_tab = st.tabs(
     ["Ringkasan", "Equipment", "Plant", "Model & data"]
@@ -384,6 +437,11 @@ with overview_tab:
         )
         st.info(selected["recommended_action"])
         st.write(f"**Alasan status:** {selected['risk_reason']}")
+        if selected["risk_level"] == "DATA_QUALITY_REVIEW":
+            st.warning(
+                "Alert model tidak dipublikasikan sampai kualitas data lulus: "
+                f"{selected['data_quality_reason']}"
+            )
         if pd.notna(selected.get("largest_recent_deviation_signal")):
             st.write(
                 "**Deviasi konteks terbesar:** "
@@ -395,6 +453,64 @@ with overview_tab:
         st.plotly_chart(
             _score_chart(selected), width="stretch", key="equipment_score_chart"
         )
+
+    if not shap_values.empty:
+        explanation_level = selected.get(
+            "model_risk_level", selected["risk_level"]
+        )
+        if explanation_level == "ACTION_NOW":
+            explanation_horizon = 7
+        elif explanation_level in {"PLAN_MAINTENANCE", "MONITOR"}:
+            explanation_horizon = 30
+        else:
+            explanation_horizon = (
+                7
+                if selected["threshold_utilization_7d"]
+                >= selected["threshold_utilization_30d"]
+                else 30
+            )
+        selected_shap = shap_values.loc[
+            shap_values["equipment_tag"].eq(selected_equipment)
+            & shap_values["horizon_days"].eq(explanation_horizon)
+        ]
+        if not selected_shap.empty:
+            st.markdown(
+                f"#### Kontribusi fitur SHAP — horizon {explanation_horizon} hari"
+            )
+            st.plotly_chart(
+                _shap_chart(selected_shap),
+                width="stretch",
+                key=f"shap_{selected_equipment}_{explanation_horizon}",
+            )
+            st.caption(
+                "Merah menaikkan skor mentah, biru menurunkannya. Permutation "
+                "SHAP menjelaskan perilaku model terhadap cohort snapshot terbaru; "
+                "hasil ini bukan bukti penyebab kerusakan."
+            )
+
+    if not inspection_guidance.empty:
+        selected_guidance = inspection_guidance.loc[
+            inspection_guidance["equipment_tag"].eq(selected_equipment)
+        ]
+        if not selected_guidance.empty:
+            guidance = selected_guidance.iloc[0]
+            st.markdown("#### Referensi RCA dan panduan inspeksi")
+            if guidance["precedent_status"] == "VERIFIED_PRECEDENT":
+                st.success(
+                    "Precedent terverifikasi ditemukan: "
+                    f"{guidance['precedent_ar_no']} â€¢ similarity "
+                    f"{float(guidance['similarity_score']):.3f}"
+                )
+            elif guidance["precedent_status"] == "SKIPPED_DATA_QUALITY":
+                st.warning("RAG ditahan karena kualitas data perlu direview.")
+            else:
+                st.info(
+                    "Belum ada precedent terverifikasi yang melewati ambang kemiripan."
+                )
+            st.markdown(str(guidance["inspection_guidance"]))
+            st.caption(
+                f"{guidance['generation_status']} â€¢ {guidance['disclaimer']}"
+            )
 
     signal_columns = [
         ("feed_rate", "Feed rate"),
@@ -446,6 +562,9 @@ with plant_tab:
                 "plan_maintenance_count": st.column_config.NumberColumn(
                     "Plan maintenance", format="%d"
                 ),
+                "data_quality_review_count": st.column_config.NumberColumn(
+                    "Data quality review", format="%d"
+                ),
                 "monitor_count": st.column_config.NumberColumn("Monitor", format="%d"),
                 "normal_count": st.column_config.NumberColumn("Normal", format="%d"),
                 "highest_risk_equipment": st.column_config.TextColumn("Prioritas utama"),
@@ -488,6 +607,10 @@ with model_tab:
             st.markdown(f"#### Horizon {horizon}")
             st.metric("Action threshold", f"{float(model['action_threshold']):.6f}")
             st.metric("Warning threshold", f"{float(model['warning_threshold']):.6f}")
+            st.write(
+                "**Release status:** "
+                f"{model.get('release_status', 'UNSPECIFIED')}"
+            )
             st.write(f"**Jumlah fitur:** {model['feature_count']}")
             st.write(f"**Dilatih:** {pd.Timestamp(model['trained_at']).strftime('%d %b %Y %H:%M UTC')}")
             calibration = model.get("threshold_calibration", {})
@@ -500,6 +623,14 @@ with model_tab:
                     "false-alert day "
                     f"{float(action_metrics['false_alert_days_per_equipment_month']):.2f}/equipment-bulan"
                 )
+            if action_metrics.get(
+                "false_alert_episodes_per_equipment_month"
+            ) is not None:
+                st.caption(
+                    "False action episode: "
+                    f"{float(action_metrics['false_alert_episodes_per_equipment_month']):.2f}"
+                    " per equipment-bulan."
+                )
             warning_metrics = calibration.get("warning", {}).get("metrics", {})
             if warning_metrics:
                 st.caption(
@@ -509,11 +640,32 @@ with model_tab:
                     "false-alert day "
                     f"{float(warning_metrics['false_alert_days_per_equipment_month']):.2f}/equipment-bulan"
                 )
+            if warning_metrics.get(
+                "false_alert_episodes_per_equipment_month"
+            ) is not None:
+                st.caption(
+                    "False warning episode: "
+                    f"{float(warning_metrics['false_alert_episodes_per_equipment_month']):.2f}"
+                    " per equipment-bulan."
+                )
             for threshold_name, threshold_label in (
                 ("action", "Action threshold"),
                 ("warning", "Warning threshold"),
             ):
                 threshold_summary = calibration.get(threshold_name, {})
+                if threshold_summary and not threshold_summary.get(
+                    "false_alert_episode_limit_met", True
+                ):
+                    episode_actual = threshold_summary["metrics"][
+                        "false_alert_episodes_per_equipment_month"
+                    ]
+                    episode_limit = threshold_summary["constraints"][
+                        "maximum_false_alert_episodes_per_equipment_month"
+                    ]
+                    st.warning(
+                        f"{threshold_label}: false episode {episode_actual:.2f} "
+                        f"melampaui batas {episode_limit:.2f} per equipment-bulan."
+                    )
                 if threshold_summary and not threshold_summary.get(
                     "false_alert_limit_met", True
                 ):
@@ -546,6 +698,26 @@ with model_tab:
         for information in label_quality.get("information", []):
             st.info(information)
         st.divider()
+    quality_guardrail = summary.get("data_quality_guardrail", {})
+    if quality_guardrail:
+        st.markdown("#### Robustness guardrail")
+        quality_columns = st.columns(3)
+        quality_columns[0].metric(
+            "Guardrail",
+            "Aktif" if quality_guardrail.get("enabled") else "Nonaktif",
+        )
+        quality_columns[1].metric(
+            "Perlu review", int(quality_guardrail.get("review_count", 0))
+        )
+        quality_columns[2].metric(
+            "Publikasi ditahan",
+            int(quality_guardrail.get("publish_blocked_count", 0)),
+        )
+        st.caption(
+            "Missing feature, rentang training, dan konsistensi fitur sensor "
+            "diperiksa sebelum alert boleh dipublikasikan."
+        )
+        st.divider()
     persistence = summary.get("alert_persistence", {})
     if persistence:
         st.markdown("#### Persistence alert")
@@ -559,6 +731,97 @@ with model_tab:
                 else "."
             )
         )
+        st.divider()
+    if competition_evidence:
+        st.markdown("#### Alert episode dan cooldown")
+        policy = competition_evidence["episode_policy"]
+        st.caption(
+            f"Episode reset setelah {policy['reset_after_clear_hours']} jam clear; "
+            f"cooldown notifikasi {policy['notification_cooldown_hours']} jam."
+        )
+        episode_columns = st.columns(2)
+        for container, horizon in zip(
+            episode_columns, ("7d", "30d"), strict=True
+        ):
+            metric = competition_evidence["test_action_episode_metrics"][
+                horizon
+            ]
+            container.metric(
+                f"False episode {horizon}",
+                f"{float(metric['false_episodes_per_equipment_month']):.2f}",
+                help="False alert episode per equipment-bulan pada final test.",
+            )
+            container.caption(
+                f"{metric['episodes']} episode • "
+                f"{metric['notifications_suppressed_by_cooldown']} notifikasi ditekan"
+            )
+        st.markdown("#### Robustness snapshot")
+        robustness = competition_evidence["robustness"]
+        robustness_frame = pd.DataFrame(robustness.get("scenarios", []))
+        if not robustness_frame.empty:
+            robustness_frame["status_retention_pct"] = (
+                100 * robustness_frame["status_retention"]
+            )
+            st.dataframe(
+                robustness_frame[
+                    [
+                        "scenario",
+                        "status_retention_pct",
+                        "status_change_count",
+                        "data_quality_review_count",
+                        "unsafe_urgent_alert_gained",
+                        "urgent_alert_lost",
+                        "guardrail_passed",
+                    ]
+                ],
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "scenario": "Skenario",
+                    "status_retention_pct": st.column_config.NumberColumn(
+                        "Status tetap", format="%.1f%%"
+                    ),
+                    "status_change_count": "Status berubah",
+                    "data_quality_review_count": "Ditahan guardrail",
+                    "unsafe_urgent_alert_gained": "Urgent tidak aman",
+                    "urgent_alert_lost": "Urgent alert hilang",
+                    "guardrail_passed": "Lulus guardrail",
+                },
+            )
+        st.caption(robustness.get("limitation", ""))
+        if rca_rag_summary:
+            st.markdown("#### SHAP ke RAG")
+            rag_columns = st.columns(3)
+            rag_columns[0].metric(
+                "RCA terverifikasi",
+                int(rca_rag_summary.get("verified_case_count", 0)),
+            )
+            rag_columns[1].metric(
+                "Precedent ditemukan",
+                int(rca_rag_summary.get("verified_precedent_count", 0)),
+            )
+            rag_columns[2].metric(
+                "Panduan Ollama",
+                int(rca_rag_summary.get("ollama_generated_count", 0)),
+            )
+            st.caption(rca_rag_summary.get("generation_policy", ""))
+        model_card_path = PROJECT_ROOT / "docs" / "CALIBER_MODEL_CARD.md"
+        demo_path = PROJECT_ROOT / "docs" / "CALIBER_DEMO_SCRIPT.md"
+        download_columns = st.columns(2)
+        if model_card_path.exists():
+            download_columns[0].download_button(
+                "Unduh model card",
+                model_card_path.read_text(encoding="utf-8"),
+                file_name=model_card_path.name,
+                mime="text/markdown",
+            )
+        if demo_path.exists():
+            download_columns[1].download_button(
+                "Unduh script demo",
+                demo_path.read_text(encoding="utf-8"),
+                file_name=demo_path.name,
+                mime="text/markdown",
+            )
         st.divider()
     st.markdown(
         """
