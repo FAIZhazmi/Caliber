@@ -1,34 +1,78 @@
-"""Left-sidebar filters for the descriptive-analytics tab."""
+"""Global, interconnected sidebar filters shared by every dashboard tab."""
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from datetime import date, timedelta
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+DATE_KEY = "global_date_filter"
+# (field, dataframe column, widget label, placeholder noun, session key)
+FIELDS = (
+    ("plant", "plant", "Plant", "Plants", "global_plant_filter"),
+    ("discipline", "discipline", "Discipline", "Disciplines", "global_discipline_filter"),
+    ("equipment_class", "equipment_class", "Equipment Class", "Classes", "global_class_filter"),
+    ("equipment_type", "equipment_type", "Equipment Type", "Types", "global_type_filter"),
+    ("equipment", "equipment_tag", "Equipment", "Equipment", "global_equipment_filter"),
+)
+
 
 @dataclass(frozen=True)
-class DescriptiveFilters:
+class GlobalFilters:
     equipment_tags: tuple[str, ...]
     plants: tuple[str, ...]
+    equipment_types: tuple[str, ...]
     date_from: date
     date_to: date
     equipment: pd.DataFrame
 
 
-def _multiselect_narrowed(
-    label: str, options: list, key: str, placeholder: str | None = None,
-) -> list:
-    """A multiselect whose stored selection is pruned when `options` shrinks."""
-    stale = [v for v in st.session_state.get(key, []) if v not in options]
-    if stale:
-        st.session_state[key] = [v for v in st.session_state[key] if v not in stale]
-    return st.multiselect(
-        label, options=options, default=[],
-        placeholder=placeholder or f"Semua ({len(options)})", key=key,
-    )
+# Backwards-compatible name used by the descriptive tab.
+DescriptiveFilters = GlobalFilters
+
+
+ASSETS_DIRECTORY = Path(__file__).resolve().parent / "assets"
+LOGO_NAMES = ("chandra_asri_logo", "logo_chandra_asri", "logo")
+LOGO_EXTENSIONS = (".png", ".svg", ".jpg", ".jpeg", ".webp")
+
+
+def _render_sidebar_logo() -> None:
+    """Show the company logo under the filters when an image file is present."""
+    for name in LOGO_NAMES:
+        for extension in LOGO_EXTENSIONS:
+            path = ASSETS_DIRECTORY / f"{name}{extension}"
+            if path.exists():
+                mime = {".svg": "image/svg+xml", ".jpg": "image/jpeg"}.get(
+                    extension, f"image/{extension.lstrip('.')}"
+                )
+                encoded = base64.b64encode(path.read_bytes()).decode()
+                with st.sidebar:
+                    st.markdown(
+                        f"<div style='text-align:center;margin:0 0 1.6vh 0;padding:1.2vh 10px;"
+                        f"background:rgba(255,255,255,.94);border-radius:18px;"
+                        f"box-shadow:0 6px 18px rgba(4,18,64,.28)'>"
+                        f"<img src='data:{mime};base64,{encoded}' style='width:80%;max-height:8vh;object-fit:contain' alt='Chandra Asri'>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                return
+
+
+def _scope(df: pd.DataFrame, selected: dict, skip: str) -> pd.DataFrame:
+    """Rows matching every selection except the field named `skip`."""
+    scoped = df
+    for field, column, *_ in FIELDS:
+        if field != skip and selected.get(field):
+            scoped = scoped[scoped[column].isin(selected[field])]
+    return scoped
+
+
+def _options(df: pd.DataFrame, column: str) -> list[str]:
+    return sorted(df[column].dropna().astype(str).unique())
 
 
 def render_sidebar_filters(
@@ -37,107 +81,86 @@ def render_sidebar_filters(
     min_date: date,
     max_date: date,
     expanded: bool = True,
-) -> DescriptiveFilters:
-    with st.sidebar.expander("Filter - Descriptive Analytics", expanded=expanded):
-        plant_labels = plants_df.assign(
-            label=lambda d: d["plant_name"].fillna(d["plant_code"]) + " (" + d["plant_code"] + ")"
-        )
-        label_to_code = dict(zip(plant_labels["label"], plant_labels["plant_code"]))
-        selected_plant_labels = st.multiselect(
-            "Plant",
-            options=list(label_to_code),
-            default=[],
-            placeholder="Semua plant",
-            key="desc_plant_filter",
-        )
-        selected_plants = [label_to_code[label] for label in selected_plant_labels]
+) -> GlobalFilters:
+    """Render Plant / Discipline / Equipment Class / Equipment Type / Equipment / Date.
 
-        scoped = equipment_df.copy()
-        if selected_plants:
-            scoped = scoped[scoped["plant"].isin(selected_plants)]
+    Each multiselect offers only the values compatible with all the other
+    selections, so picking a value in any of them narrows the rest (in both
+    directions). Selections that become incompatible are dropped before the
+    widgets are created.
+    """
+    equipment_df = equipment_df.copy()
+    for _, column, *_ in FIELDS:
+        equipment_df[column] = equipment_df[column].astype(str)
 
-        type_options = sorted(scoped["equipment_type"].dropna().unique())
-        selected_types = _multiselect_narrowed(
-            "Equipment type", type_options, "desc_type_filter", "Semua tipe"
-        )
-        if selected_types:
-            scoped = scoped[scoped["equipment_type"].isin(selected_types)]
+    plant_names = {}
+    if plants_df is not None and not plants_df.empty and "plant_code" in plants_df:
+        names = plants_df.get("plant_name", plants_df["plant_code"]).fillna(plants_df["plant_code"])
+        plant_names = dict(zip(plants_df["plant_code"].astype(str), names.astype(str)))
 
-        equipment_options = sorted(scoped["equipment_tag"].unique())
-        selected_equipment = _multiselect_narrowed(
-            "Equipment", equipment_options, "desc_equipment_filter", f"Semua equipment ({len(equipment_options)})"
-        )
-        if selected_equipment:
-            scoped = scoped[scoped["equipment_tag"].isin(selected_equipment)]
+    def plant_label(code: str) -> str:
+        name = plant_names.get(code)
+        return f"{name} ({code})" if name and name != code else code
 
-        class_options = sorted(scoped["equipment_class"].dropna().unique())
-        selected_classes = _multiselect_narrowed(
-            "Equipment class", class_options, "desc_class_filter", "Semua class"
-        )
-        if selected_classes:
-            scoped = scoped[scoped["equipment_class"].isin(selected_classes)]
+    selected = {field: list(st.session_state.get(key, [])) for field, _, _, _, key in FIELDS}
 
-        discipline_options = sorted(scoped["discipline"].dropna().unique())
-        selected_disciplines = _multiselect_narrowed(
-            "Discipline", discipline_options, "desc_discipline_filter", "Semua discipline"
-        )
-        if selected_disciplines:
-            scoped = scoped[scoped["discipline"].isin(selected_disciplines)]
+    # Drop selections no longer compatible with the others (repeat until stable).
+    for _ in range(len(FIELDS)):
+        changed = False
+        for field, column, *_ in FIELDS:
+            valid = _options(_scope(equipment_df, selected, field), column)
+            kept = [v for v in selected[field] if v in valid]
+            if kept != selected[field]:
+                selected[field] = kept
+                changed = True
+        if not changed:
+            break
+    for field, _, _, _, key in FIELDS:
+        if key in st.session_state:
+            st.session_state[key] = selected[field]
 
-        criticality_order = ["High", "Medium", "Low"]
-        criticality_options = [
-            c for c in criticality_order if c in scoped["criticality"].dropna().unique()
-        ]
-        selected_criticalities = _multiselect_narrowed(
-            "Criticality", criticality_options, "desc_crit_filter", "Semua criticality"
-        )
-        if selected_criticalities:
-            scoped = scoped[scoped["criticality"].isin(selected_criticalities)]
+    _render_sidebar_logo()
+    with st.sidebar:
+        with st.container(border=True):
+            for field, column, label, noun, key in FIELDS:
+                options = _options(_scope(equipment_df, selected, field), column)
+                st.multiselect(
+                    label,
+                    options=options,
+                    format_func=plant_label if field == "plant" else str,
+                    placeholder=f"All {noun} ({len(options)})",
+                    key=key,
+                )
 
-        name_query = st.text_input(
-            "Cari nama equipment",
-            value="",
-            placeholder="mis. cooling tower, blower, ...",
-            key="desc_name_filter",
-        )
-        if name_query.strip():
-            scoped = scoped[
-                scoped["equipment_name"].str.contains(name_query.strip(), case=False, na=False)
-            ]
+            default_from = max(min_date, max_date - timedelta(days=182))
+            date_range = st.date_input(
+                "Date",
+                value=(default_from, max_date),
+                min_value=min_date,
+                max_value=max_date,
+                key=DATE_KEY,
+            )
+            if isinstance(date_range, (tuple, list)) and len(date_range) == 2:
+                date_from, date_to = date_range
+            else:
+                date_from, date_to = default_from, max_date
 
-        default_from = max(min_date, max_date - timedelta(days=182))
-        date_range = st.date_input(
-            "Rentang tanggal",
-            value=(default_from, max_date),
-            min_value=min_date,
-            max_value=max_date,
-            key="desc_date_filter",
-        )
-        if isinstance(date_range, tuple) and len(date_range) == 2:
-            date_from, date_to = date_range
-        else:
-            date_from, date_to = min_date, max_date
+            final = _scope(
+                equipment_df,
+                {field: list(st.session_state.get(key, [])) for field, _, _, _, key in FIELDS},
+                skip="",
+            )
+            st.caption(f"{len(final)} of {len(equipment_df)} equipment selected")
+            if st.button("Reset filter", key="global_reset_filter", width="stretch"):
+                for key in [k for *_, k in FIELDS] + [DATE_KEY]:
+                    st.session_state.pop(key, None)
+                st.rerun()
 
-        st.caption(f"{len(scoped)} dari {len(equipment_df)} equipment terpilih")
-        if st.button("Reset filter", key="desc_reset_filter", width="stretch"):
-            for key in (
-                "desc_plant_filter",
-                "desc_type_filter",
-                "desc_class_filter",
-                "desc_discipline_filter",
-                "desc_crit_filter",
-                "desc_name_filter",
-                "desc_equipment_filter",
-                "desc_date_filter",
-            ):
-                st.session_state.pop(key, None)
-            st.rerun()
-
-    effective_plants = tuple(selected_plants) if selected_plants else tuple(plants_df["plant_code"])
-    return DescriptiveFilters(
-        equipment_tags=tuple(scoped["equipment_tag"]),
-        plants=effective_plants,
+    return GlobalFilters(
+        equipment_tags=tuple(final["equipment_tag"]),
+        plants=tuple(sorted(final["plant"].unique())),
+        equipment_types=tuple(sorted(final["equipment_type"].unique())),
         date_from=date_from,
         date_to=date_to,
-        equipment=scoped,
+        equipment=final,
     )

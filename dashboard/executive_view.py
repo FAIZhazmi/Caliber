@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from html import escape
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
+from dashboard.filters import GlobalFilters
 from dashboard.data import (
     DashboardDataError,
     aggregate_equipment_by_plant,
@@ -17,10 +19,10 @@ from dashboard.data import (
 
 
 STATUS_LABELS = {
-    "ACTION_NOW": "Tindakan segera",
-    "PLAN_MAINTENANCE": "Rencanakan pemeliharaan",
-    "DATA_QUALITY_REVIEW": "Review kualitas data",
-    "MONITOR": "Pantau",
+    "ACTION_NOW": "Act now",
+    "PLAN_MAINTENANCE": "Plan maintenance",
+    "DATA_QUALITY_REVIEW": "Data quality review",
+    "MONITOR": "Monitor",
     "NORMAL": "Normal",
 }
 STATUS_COLORS = {
@@ -31,11 +33,11 @@ STATUS_COLORS = {
     "NORMAL": "#15803d",
 }
 DECISION_WINDOWS = {
-    "ACTION_NOW": "Maksimal 7 hari",
-    "PLAN_MAINTENANCE": "Rencana 30 hari",
-    "DATA_QUALITY_REVIEW": "Tahan keputusan",
-    "MONITOR": "Shift berikutnya",
-    "NORMAL": "Pemantauan rutin",
+    "ACTION_NOW": "Within 7 days",
+    "PLAN_MAINTENANCE": "Plan within 30 days",
+    "DATA_QUALITY_REVIEW": "Hold decision",
+    "MONITOR": "Next shift",
+    "NORMAL": "Routine monitoring",
 }
 SIGNAL_LABELS = {
     "feed_rate": "Feed rate",
@@ -46,6 +48,51 @@ SIGNAL_LABELS = {
     "plant_rate": "Plant rate",
     "power_kw": "Power",
 }
+
+
+_TRANSLATIONS = {
+    "Review dalam 24 jam dan jadwalkan pemeliharaan": "Review within 24 hours and schedule maintenance",
+    "Pantau tren pada shift berikutnya dan verifikasi kondisi sensor": "Monitor the trend on the next shift and verify sensor condition",
+    "Lanjutkan pemantauan rutin": "Continue routine monitoring",
+    "Lulus guardrail": "Passed guardrail",
+    "Sinyal belum memenuhi warning threshold dan aturan persistence": "Signals have not met the warning threshold and persistence rule",
+    "Skor model persisten melewati warning threshold": "Model score persistently exceeds the warning threshold",
+    "Skor model 30 hari persisten melewati action threshold": "30-day model score persistently exceeds the action threshold",
+    "Skor model 7 hari persisten melewati action threshold": "7-day model score persistently exceeds the action threshold",
+    "dari 6 pembacaan terakhir": "of the last 6 readings",
+    "Referensi terdekat adalah": "Closest reference is",
+    "dengan similarity": "with similarity",
+    "ini bukan diagnosis untuk equipment saat ini": "this is not a diagnosis for the current equipment",
+    "Verifikasi mounting sensor, rekam spektrum vibration, lalu periksa bearing, alignment, coupling, dan lubrication.": "Verify sensor mounting, record the vibration spectrum, then inspect bearing, alignment, coupling, and lubrication.",
+    "Bandingkan temperature dengan sensor referensi dan periksa cooling, lubrication, serta beban operasi.": "Compare temperature with a reference sensor and check cooling, lubrication, and operating load.",
+    "Catat hasil inspeksi dan eskalasi ke SME hanya bila temuan fisik mendukung alert.": "Record inspection results and escalate to an SME only if physical findings support the alert.",
+    "Validasi flowmeter dan bandingkan feed rate dengan operating point serta kondisi valve.": "Validate the flowmeter and compare feed rate against the operating point and valve condition.",
+    "Validasi pressure transmitter/differential pressure lalu periksa restriction, fouling, valve position, dan kondisi aliran.": "Validate the pressure transmitter/differential pressure, then check restriction, fouling, valve position, and flow condition.",
+    "Panduan ini untuk inspeksi awal, bukan diagnosis kerusakan atau otorisasi shutdown/maintenance.": "This guidance is for preliminary inspection, not a damage diagnosis or shutdown/maintenance authorization.",
+}
+
+
+_MONTHS = {
+    "Januari": "January", "Februari": "February", "Maret": "March", "April": "April",
+    "Mei": "May", "Juni": "June", "Juli": "July", "Agustus": "August",
+    "September": "September", "Oktober": "October", "November": "November", "Desember": "December",
+}
+
+
+def _en(text: object) -> str:
+    """Translate known pipeline-generated Indonesian phrases; unknown text is left unchanged."""
+    result = str(text)
+    match = re.fullmatch(
+        r"Data sampai (\d+) (\w+) (\d{4}) adalah data sintetis untuk simulasi, bukan telemetry real-time\.",
+        result,
+    )
+    if match:
+        day, month, year = match.groups()
+        month = _MONTHS.get(month, month)
+        return f"Data up to {month} {day}, {year} is synthetic, for simulation only — not real-time telemetry."
+    for source, target in sorted(_TRANSLATIONS.items(), key=lambda kv: -len(kv[0])):
+        result = result.replace(source, target)
+    return result
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -61,14 +108,14 @@ def _load_executive_guidance(path: str) -> tuple[dict, pd.DataFrame]:
 def _decision_reason(row: pd.Series) -> str:
     status = str(row["risk_level"])
     if status == "ACTION_NOW":
-        return "Pola kondisi terbaru memenuhi aturan peringatan 7 hari secara persisten."
+        return "The latest condition pattern persistently meets the 7-day alert rule."
     if status == "PLAN_MAINTENANCE":
-        return "Pola kondisi terbaru memenuhi aturan perencanaan 30 hari secara persisten."
+        return "The latest condition pattern persistently meets the 30-day planning rule."
     if status == "DATA_QUALITY_REVIEW":
-        return "Kualitas input belum cukup dipercaya, sehingga alert model ditahan."
+        return "Input quality is not yet trustworthy enough, so the model alert is withheld."
     if status == "MONITOR":
-        return "Perubahan kondisi terdeteksi, tetapi belum memenuhi batas tindakan."
-    return "Belum ada pola persisten yang memerlukan tindak lanjut tambahan."
+        return "A condition change was detected but has not reached the action threshold."
+    return "No persistent pattern requires additional follow-up."
 
 
 def build_executive_priority(risk: pd.DataFrame) -> pd.DataFrame:
@@ -77,31 +124,32 @@ def build_executive_priority(risk: pd.DataFrame) -> pd.DataFrame:
     if priority.empty:
         return pd.DataFrame(
             columns=[
-                "Prioritas",
+                "Priority",
                 "Equipment",
                 "Plant",
                 "Status",
-                "Batas keputusan",
-                "Tindakan",
+                "Decision window",
+                "Action",
             ]
         )
     priority["Status"] = priority["risk_level"].map(STATUS_LABELS)
-    priority["Batas keputusan"] = priority["risk_level"].map(DECISION_WINDOWS)
+    priority["recommended_action"] = priority["recommended_action"].map(_en)
+    priority["Decision window"] = priority["risk_level"].map(DECISION_WINDOWS)
     return priority.rename(
         columns={
-            "risk_rank": "Prioritas",
+            "risk_rank": "Priority",
             "equipment_tag": "Equipment",
             "plant": "Plant",
-            "recommended_action": "Tindakan",
+            "recommended_action": "Action",
         }
     )[
         [
-            "Prioritas",
+            "Priority",
             "Equipment",
             "Plant",
             "Status",
-            "Batas keputusan",
-            "Tindakan",
+            "Decision window",
+            "Action",
         ]
     ]
 
@@ -118,13 +166,15 @@ def _render_source_notice(summary: dict) -> None:
     source_status = summary.get("source_time_status")
     if source_status == "SYNTHETIC_DEMO_SNAPSHOT":
         st.info(
-            summary.get(
-                "synthetic_snapshot_note",
-                "Snapshot menggunakan data sintetis untuk simulasi.",
+            _en(
+                summary.get(
+                    "synthetic_snapshot_note",
+                    "The snapshot uses synthetic data for simulation.",
+                )
             )
         )
     elif source_status in {"FUTURE_SOURCE_TIMESTAMP", "STALE_SOURCE_TIMESTAMP"}:
-        st.warning("Kesegaran timestamp sumber perlu diverifikasi sebelum keputusan operasi.")
+        st.warning("Verify source timestamp freshness before operational decisions.")
 
 
 def _render_priority_detail(
@@ -148,49 +198,51 @@ def _render_priority_detail(
 
     decision_left, decision_right = st.columns([1, 1])
     with decision_left:
-        st.markdown("**Keputusan yang disarankan**")
-        st.info(str(selected["recommended_action"]))
-        st.write(f"**Batas keputusan:** {DECISION_WINDOWS[status]}")
+        st.markdown("**Recommended decision**")
+        st.info(_en(selected["recommended_action"]))
+        st.write(f"**Decision window:** {DECISION_WINDOWS[status]}")
     with decision_right:
-        st.markdown("**Mengapa masuk daftar**")
+        st.markdown("**Why it is listed**")
         st.write(_decision_reason(selected))
         signal = selected.get("largest_recent_deviation_signal")
         if pd.notna(signal):
-            st.write(f"**Sinyal utama:** {SIGNAL_LABELS.get(str(signal), str(signal))}")
+            st.write(f"**Main signal:** {SIGNAL_LABELS.get(str(signal), str(signal))}")
 
     if status == "DATA_QUALITY_REVIEW":
         st.warning(
-            "Keputusan dan publikasi alert ditahan sampai kualitas data lulus. "
-            f"Catatan: {selected.get('data_quality_reason', 'perlu pemeriksaan input')}."
+            "Decisions and alert publishing are on hold until data quality passes. "
+            f"Note: {_en(selected.get('data_quality_reason', 'input check required'))}."
         )
         return
 
     matched = guidance.loc[guidance["equipment_tag"].eq(equipment_tag)]
-    st.markdown("#### Panduan inspeksi dan referensi")
+    st.markdown("#### Inspection guidance and reference")
     if matched.empty:
-        st.info("Panduan inspeksi belum tersedia untuk equipment ini.")
+        st.info("Inspection guidance is not yet available for this equipment.")
         return
     item = matched.iloc[0]
     if item["precedent_status"] == "VERIFIED_PRECEDENT":
-        ar_number = item.get("precedent_ar_no", "RCA terverifikasi")
-        failure_mode = item.get("precedent_failure_mode", "kasus terdahulu")
-        st.success(f"Referensi terverifikasi: {ar_number} — {failure_mode}")
+        ar_number = item.get("precedent_ar_no", "verified RCA")
+        failure_mode = item.get("precedent_failure_mode", "previous case")
+        st.success(f"Verified reference: {ar_number} — {failure_mode}")
     else:
-        st.info("Belum ada precedent terverifikasi yang cukup mirip.")
+        st.info("No verified precedent is similar enough yet.")
 
     steps = _inspection_steps(item["inspection_guidance"])
     if steps:
-        st.markdown("\\n".join(f"- {step}" for step in steps))
+        st.markdown("\n".join(f"- {_en(step)}" for step in steps))
     else:
-        st.write(str(item["inspection_guidance"]))
-    provider = "Ollama" if bool(item.get("llm_used", False)) else "fallback terkontrol"
+        st.write(_en(str(item["inspection_guidance"])))
+    provider = "Ollama" if bool(item.get("llm_used", False)) else "controlled fallback"
     st.caption(
-        f"Panduan dihasilkan melalui {provider}. Ini adalah panduan inspeksi awal, "
-        "bukan diagnosis atau otorisasi shutdown."
+        f"Guidance generated via {provider}. This is preliminary inspection guidance, "
+        "not a diagnosis or shutdown authorization."
     )
 
 
-def render_predictive_maintenance_executive(reporting_directory: Path) -> None:
+def render_predictive_maintenance_executive(
+    reporting_directory: Path, filters: GlobalFilters | None = None
+) -> None:
     """Render a compact component suitable for a combined executive dashboard."""
     try:
         equipment_risk, _, summary = _load_executive_data(str(reporting_directory))
@@ -204,21 +256,25 @@ def render_predictive_maintenance_executive(reporting_directory: Path) -> None:
         f"<div class='executive-header'>"
         f"<div class='executive-kicker'>ASSET RELIABILITY</div>"
         f"<div class='executive-title'>Executive Maintenance Overview</div>"
-        f"<div class='executive-subtitle'>Prioritas keputusan · Snapshot "
+        f"<div class='executive-subtitle'>Decision priorities · Snapshot "
         f"{snapshot.strftime('%d %b %Y %H:%M')}</div></div>",
         unsafe_allow_html=True,
     )
     _render_source_notice(summary)
 
-    plant_options = ["Semua plant"] + sorted(
-        equipment_risk["plant"].dropna().astype(str).unique().tolist()
-    )
-    selected_plant = st.selectbox("Lingkup plant", plant_options, index=0)
     scoped = (
         equipment_risk
-        if selected_plant == "Semua plant"
-        else equipment_risk.loc[equipment_risk["plant"].eq(selected_plant)]
+        if filters is None
+        else equipment_risk.loc[equipment_risk["equipment_tag"].isin(filters.equipment_tags)]
     )
+    if filters is not None:
+        st.caption(
+            f"Global filter: {len(scoped)} equipment · "
+            "the risk snapshot is point-in-time, so the date range does not change this view."
+        )
+    if scoped.empty:
+        st.info("No equipment matches the current filters.")
+        return
 
     action_count = int(
         scoped["risk_level"].isin(["ACTION_NOW", "PLAN_MAINTENANCE"]).sum()
@@ -227,34 +283,34 @@ def render_predictive_maintenance_executive(reporting_directory: Path) -> None:
     review_count = int(scoped["risk_level"].eq("DATA_QUALITY_REVIEW").sum())
     normal_count = int(scoped["risk_level"].eq("NORMAL").sum())
     kpis = st.columns(4)
-    kpis[0].metric("Perlu tindakan", action_count)
-    kpis[1].metric("Perlu dipantau", monitor_count)
-    kpis[2].metric("Review kualitas data", review_count)
+    kpis[0].metric("Needs action", action_count)
+    kpis[1].metric("Needs monitoring", monitor_count)
+    kpis[2].metric("Data quality review", review_count)
     kpis[3].metric("Normal", normal_count)
 
     model_30d = summary.get("models", {}).get("30d", {})
     if model_30d.get("release_status") == "EXPERIMENTAL":
         st.warning(
-            "Peringatan 30 hari masih bersifat experimental dan digunakan untuk "
-            "prioritas inspeksi, bukan keputusan shutdown otomatis."
+            "The 30-day warning is still experimental and is used for "
+            "inspection prioritization, not automatic shutdown decisions."
         )
 
-    st.markdown("## Prioritas keputusan")
+    st.markdown("## Decision priorities")
     priority = build_executive_priority(scoped)
     if priority.empty:
-        st.success("Tidak ada equipment yang membutuhkan perhatian tambahan.")
+        st.success("No equipment requires additional attention.")
     else:
         st.dataframe(
             priority,
             hide_index=True,
             width="stretch",
             column_config={
-                "Prioritas": st.column_config.NumberColumn(format="%d", width="small"),
+                "Priority": st.column_config.NumberColumn(format="%d", width="small"),
                 "Equipment": st.column_config.TextColumn(width="small"),
                 "Plant": st.column_config.TextColumn(width="small"),
                 "Status": st.column_config.TextColumn(width="medium"),
-                "Batas keputusan": st.column_config.TextColumn(width="medium"),
-                "Tindakan": st.column_config.TextColumn(width="large"),
+                "Decision window": st.column_config.TextColumn(width="medium"),
+                "Action": st.column_config.TextColumn(width="large"),
             },
         )
 
@@ -270,23 +326,23 @@ def render_predictive_maintenance_executive(reporting_directory: Path) -> None:
         ].sum(axis=1).gt(0)
     ]
     if not attention_plants.empty:
-        st.markdown("## Plant yang membutuhkan perhatian")
+        st.markdown("## Plants needing attention")
         plant_display = attention_plants.assign(
             **{
-                "Perlu tindakan": attention_plants["action_now_count"]
+                "Needs action": attention_plants["action_now_count"]
                 + attention_plants["plan_maintenance_count"],
-                "Pantau": attention_plants["monitor_count"],
-                "Review data": attention_plants["data_quality_review_count"],
+                "Monitor": attention_plants["monitor_count"],
+                "Data review": attention_plants["data_quality_review_count"],
             }
         ).rename(
             columns={
                 "plant": "Plant",
-                "highest_risk_equipment": "Prioritas utama",
+                "highest_risk_equipment": "Top priority",
             }
         )
         st.dataframe(
             plant_display[
-                ["Plant", "Perlu tindakan", "Pantau", "Review data", "Prioritas utama"]
+                ["Plant", "Needs action", "Monitor", "Data review", "Top priority"]
             ],
             hide_index=True,
             width="stretch",
@@ -294,15 +350,15 @@ def render_predictive_maintenance_executive(reporting_directory: Path) -> None:
 
     non_normal = scoped.loc[scoped["risk_level"].ne("NORMAL")]
     if not non_normal.empty:
-        st.markdown("## Detail keputusan")
+        st.markdown("## Decision details")
         options = non_normal["equipment_tag"].astype(str).tolist()
-        selected_tag = st.selectbox("Pilih equipment", options)
+        selected_tag = st.selectbox("Select equipment", options)
         selected = non_normal.loc[non_normal["equipment_tag"].eq(selected_tag)].iloc[0]
         with st.container(border=True):
             _render_priority_detail(selected, inspection_guidance)
 
     st.caption(
-        "CALIBER adalah decision-support. Keputusan maintenance tetap mengikuti "
-        "prosedur operasi dan otorisasi yang berlaku."
+        "CALIBER is decision support. Maintenance decisions still follow "
+        "applicable operating procedures and authorization."
     )
 

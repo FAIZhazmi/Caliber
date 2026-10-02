@@ -29,16 +29,16 @@ class DashboardDataTests(unittest.TestCase):
         priority = build_executive_priority(risk)
 
         self.assertEqual(priority["Equipment"].tolist(), ["P-1"])
-        self.assertEqual(priority.loc[0, "Status"], "Rencanakan pemeliharaan")
+        self.assertEqual(priority.loc[0, "Status"], "Plan maintenance")
         self.assertEqual(
             priority.columns.tolist(),
             [
-                "Prioritas",
+                "Priority",
                 "Equipment",
                 "Plant",
                 "Status",
-                "Batas keputusan",
-                "Tindakan",
+                "Decision window",
+                "Action",
             ],
         )
 

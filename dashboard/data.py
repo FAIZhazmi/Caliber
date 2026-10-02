@@ -81,7 +81,7 @@ class DashboardDataError(RuntimeError):
 def _require_columns(frame: pd.DataFrame, required: set[str], name: str) -> None:
     missing = sorted(required.difference(frame.columns))
     if missing:
-        raise DashboardDataError(f"{name} tidak memiliki kolom wajib: {missing}")
+        raise DashboardDataError(f"{name} is missing required columns: {missing}")
 
 
 def load_dashboard_data(reporting_directory: Path) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
@@ -112,7 +112,7 @@ def load_dashboard_data(reporting_directory: Path) -> tuple[pd.DataFrame, pd.Dat
     missing_files = [str(path) for path in paths.values() if not path.exists()]
     if missing_files:
         raise DashboardDataError(
-            "Artefak reporting belum tersedia: " + ", ".join(missing_files)
+            "Reporting artifacts are not available: " + ", ".join(missing_files)
         )
 
     try:
@@ -120,23 +120,23 @@ def load_dashboard_data(reporting_directory: Path) -> tuple[pd.DataFrame, pd.Dat
         plants = pd.read_parquet(paths["plant"])
         summary = json.loads(paths["summary"].read_text(encoding="utf-8"))
     except Exception as exc:
-        raise DashboardDataError(f"Gagal membaca artefak reporting: {exc}") from exc
+        raise DashboardDataError(f"Failed to read reporting artifacts: {exc}") from exc
 
     _require_columns(risk, RISK_REQUIRED_COLUMNS, "current_equipment_risk")
     _require_columns(plants, PLANT_REQUIRED_COLUMNS, "plant_risk_summary")
     missing_keys = sorted(SUMMARY_REQUIRED_KEYS.difference(summary))
     if missing_keys:
         raise DashboardDataError(
-            f"predictive_maintenance_summary tidak memiliki key wajib: {missing_keys}"
+            f"predictive_maintenance_summary is missing required keys: {missing_keys}"
         )
     if risk.empty:
-        raise DashboardDataError("current_equipment_risk tidak berisi data")
+        raise DashboardDataError("current_equipment_risk contains no data")
     if risk["equipment_tag"].duplicated().any():
-        raise DashboardDataError("current_equipment_risk memiliki equipment duplikat")
+        raise DashboardDataError("current_equipment_risk has duplicate equipment")
     if not set(risk["risk_level"].dropna()).issubset(RISK_LEVELS):
-        raise DashboardDataError("current_equipment_risk memiliki risk_level tidak dikenal")
+        raise DashboardDataError("current_equipment_risk has an unknown risk_level")
     if int(plants["equipment_count"].sum()) != len(risk):
-        raise DashboardDataError("Total equipment pada ringkasan plant tidak konsisten")
+        raise DashboardDataError("Total equipment in the plant summary is inconsistent")
 
     risk = risk.sort_values("risk_rank").reset_index(drop=True)
     plants = plants.sort_values("plant_rank").reset_index(drop=True)
@@ -161,7 +161,7 @@ def load_competition_evidence(
         shap_values = pd.read_parquet(shap_path)
     except Exception as exc:
         raise DashboardDataError(
-            f"Gagal membaca artefak competition readiness: {exc}"
+            f"Failed to read competition readiness artifacts: {exc}"
         ) from exc
     shap_required = {
         "equipment_tag",
@@ -187,7 +187,7 @@ def load_rca_rag_evidence(reporting_directory: Path) -> tuple[dict, pd.DataFrame
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         guidance = pd.read_parquet(guidance_path)
     except Exception as exc:
-        raise DashboardDataError(f"Gagal membaca artefak RCA RAG: {exc}") from exc
+        raise DashboardDataError(f"Failed to read RCA RAG artifacts: {exc}") from exc
     required = {
         "equipment_tag",
         "precedent_status",

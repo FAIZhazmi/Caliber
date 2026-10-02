@@ -31,7 +31,7 @@ def get_engine() -> Engine:
     db_url = os.environ.get("SUPABASE_DB_URL")
     if not db_url:
         raise SupabaseConfigError(
-            "SUPABASE_DB_URL belum di-set. Isi di file .env (lihat .env.example)."
+            "SUPABASE_DB_URL is not set. Add it to the .env file (see .env.example)."
         )
     return create_engine(db_url, pool_pre_ping=True, pool_size=5, max_overflow=5)
 
