@@ -24,6 +24,7 @@ from dashboard.descriptive import (  # noqa: E402
 )
 from dashboard.executive_view import render_predictive_maintenance_executive  # noqa: E402
 from dashboard.filters import render_sidebar_filters  # noqa: E402
+from dashboard.regression_viz import render_regression_analysis  # noqa: E402
 
 
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
@@ -278,6 +279,7 @@ st.markdown(
     equipment_tab,
     downtime_tab,
     energy_tab,
+    regression_tab,
 ) = st.tabs(
     [
         "Executive Summary",
@@ -286,6 +288,7 @@ st.markdown(
         "Equipment Performance",
         "Downtime Data",
         "Energy & Emissions",
+        "📈 Regression Analysis",
     ]
 )
 
@@ -311,6 +314,9 @@ for tab, render in (
             )
         else:
             render()
+
+with regression_tab:
+    render_regression_analysis(PROJECT_ROOT)
 
 # Flag the page once the banner has scrolled out of view so the toolbar can switch colours (see CSS above).
 # Scroll events do not bubble, so listen in the capture phase; the guard keeps reruns from stacking listeners.
