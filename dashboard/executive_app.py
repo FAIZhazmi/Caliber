@@ -15,13 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from dashboard import queries  # noqa: E402
-from dashboard.descriptive import (  # noqa: E402
-    render_downtime_tab,
-    render_energy_emissions_tab,
-    render_equipment_performance_tab,
-    render_incident_tab,
-    render_production_tab,
-)
+from dashboard.descriptive import render_overview_tab  # noqa: E402
 from dashboard.executive_view import render_predictive_maintenance_executive  # noqa: E402
 from dashboard.filters import render_sidebar_filters  # noqa: E402
 
@@ -223,6 +217,25 @@ st.markdown(
       }
       section[data-testid="stSidebar"] button { min-height: clamp(28px, 4.2vh, 40px); }
       section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] { font-size: clamp(10px, 1.4vh, 13px); }
+      /* ---- Detail-table pager: Previous / page numbers / Next joined into one button group ---- */
+      [class*="st-key-pager_"] { gap: 0 !important; flex-wrap: nowrap !important; }
+      /* Streamlit clips button labels that are a sub-pixel wider than their box: let them show in full. */
+      [class*="st-key-pager_"] .stButton > button,
+      [class*="st-key-pager_"] .stButton > button * { overflow: visible !important; text-overflow: clip !important; }
+      [class*="st-key-pager_"] .stButton > button {
+        min-height: 0; height: 38px; min-width: 42px; padding: 0 15px; margin-right: -1px; position: relative;
+        border-radius: 0; border: 1px solid #cdd9ee; background: #fff; color: var(--blue);
+        box-shadow: none; filter: none; font-weight: 500;
+      }
+      [class*="st-key-pager_"] .stButton > button p { color: inherit; font-size: .92rem; }
+      [class*="st-key-pager_"] .stButton > button:hover:not(:disabled) { background: #eaf1fd; color: #0f3d91; filter: none; }
+      [class*="st-key-pager_"] .stButton > button[kind="primary"],
+      [class*="st-key-pager_"] .stButton > button[kind="primary"]:hover:not(:disabled) {
+        background: var(--blue); border-color: var(--blue); color: #fff; z-index: 1;
+      }
+      [class*="st-key-pager_"] .stButton > button:disabled { background: #fff; color: #8b97ad; cursor: default; opacity: 1; }
+      [class*="st-key-pager_"] > div:first-child .stButton > button { border-radius: 10px 0 0 10px; }
+      [class*="st-key-pager_"] > div:last-child .stButton > button { border-radius: 0 10px 10px 0; margin-right: 0; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -271,46 +284,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-(
-    executive_tab,
-    production_tab,
-    incident_tab,
-    equipment_tab,
-    downtime_tab,
-    energy_tab,
-) = st.tabs(
-    [
-        "Executive Summary",
-        "Production Data",
-        "Incident Database",
-        "Equipment Performance",
-        "Downtime Data",
-        "Energy & Emissions",
-    ]
-)
+executive_tab, overview_tab = st.tabs(["Executive Summary", "Overview Data"])
 
 with executive_tab:
     render_predictive_maintenance_executive(REPORTING_DIRECTORY, global_filters)
 
-for tab, render in (
-    (production_tab, lambda: render_production_tab(global_filters)),
-    (incident_tab, lambda: render_incident_tab(global_filters)),
-    (
-        equipment_tab,
-        lambda: render_equipment_performance_tab(global_filters, parameters_dim),
-    ),
-    (downtime_tab, lambda: render_downtime_tab(global_filters)),
-    (energy_tab, lambda: render_energy_emissions_tab(global_filters, plants_dim)),
-):
-    with tab:
-        if db_error is not None:
-            st.error(f"Descriptive analytics cannot connect to Supabase: {db_error}")
-            st.info(
-                "Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler. "
-                "The Executive Summary remains available without this database connection."
-            )
-        else:
-            render()
+with overview_tab:
+    if db_error is not None:
+        st.error(f"Descriptive analytics cannot connect to Supabase: {db_error}")
+        st.info(
+            "Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler. "
+            "The Executive Summary remains available without this database connection."
+        )
+    else:
+        render_overview_tab(global_filters, parameters_dim, plants_dim)
 
 # Flag the page once the banner has scrolled out of view so the toolbar can switch colours (see CSS above).
 # Scroll events do not bubble, so listen in the capture phase; the guard keeps reruns from stacking listeners.

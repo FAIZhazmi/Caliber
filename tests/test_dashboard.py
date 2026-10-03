@@ -11,6 +11,7 @@ from dashboard.data import (
     filter_equipment_risk,
     load_dashboard_data,
 )
+from dashboard.descriptive import page_window
 from dashboard.executive_view import build_executive_priority
 
 
@@ -172,6 +173,30 @@ class DashboardDataTests(unittest.TestCase):
         self.assertEqual(loaded_risk["equipment_tag"].tolist(), ["EQ-1"])
         self.assertEqual(loaded_plants["plant"].tolist(), ["P1"])
         self.assertEqual(loaded_summary["schema_version"], "test")
+
+
+class DetailPagerTests(unittest.TestCase):
+    def test_page_window_matches_datatables_layout(self):
+        n = None  # ellipsis
+        self.assertEqual(page_window(1, 139), [1, 2, 3, 4, 5, n, 139])
+        self.assertEqual(page_window(4, 139), [1, 2, 3, 4, 5, n, 139])
+        self.assertEqual(page_window(5, 139), [1, n, 4, 5, 6, n, 139])
+        self.assertEqual(page_window(70, 139), [1, n, 69, 70, 71, n, 139])
+        self.assertEqual(page_window(136, 139), [1, n, 135, 136, 137, 138, 139])
+        self.assertEqual(page_window(139, 139), [1, n, 135, 136, 137, 138, 139])
+
+    def test_page_window_lists_every_page_when_few(self):
+        self.assertEqual(page_window(1, 1), [1])
+        self.assertEqual(page_window(3, 7), [1, 2, 3, 4, 5, 6, 7])
+
+    def test_page_window_always_fits_the_slots_and_contains_current_page(self):
+        for page_count in range(1, 40):
+            for page in range(1, page_count + 1):
+                window = page_window(page, page_count)
+                self.assertLessEqual(len(window), 7)
+                self.assertIn(page, window)
+                self.assertEqual(window[0], 1)
+                self.assertEqual(window[-1], page_count)
 
 
 if __name__ == "__main__":
