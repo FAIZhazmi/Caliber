@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "model_version": "autoregressive_ridge_v1.0.0",
+  "source_timestamp": "2026-10-04T00:00:00",
+  "equipment_count": 20,
+  "sensor_count": 7,
+  "horizon_days": 30,
+  "history_days": 180,
+  "forecast_row_count": 4200,
+  "risk_row_count": 4200,
+  "validation_auc_7d": 0.8167096774193549,
+  "models_beating_naive": 98,
+  "model_count": 140,
+  "data_classification": "synthetic_demo",
+  "usage_note": "Experimental decision-support evidence; not a failure-time guarantee."
+}

@@ -234,6 +234,11 @@ def _read_supabase_page(
         except URLError as error:
             if attempt == max_retries:
                 raise RuntimeError(f"Supabase request failed: {error.reason}") from error
+        except (TimeoutError, ConnectionError) as error:
+            if attempt == max_retries:
+                raise RuntimeError(
+                    f"Supabase request failed after {max_retries + 1} attempts: {error}"
+                ) from error
         time.sleep(min(2**attempt, 8))
     raise RuntimeError("Supabase request failed after retries")
 

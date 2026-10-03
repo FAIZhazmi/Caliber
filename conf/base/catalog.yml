@@ -199,6 +199,31 @@ operational_predictive_maintenance_summary:
   filepath: data/08_reporting/operational_predictive_maintenance_summary.json
   save_args: {indent: 2}
 
+equipment_forecast_history:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/equipment_forecast_history.parquet
+  save_args: {compression: zstd}
+
+equipment_sensor_forecast:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/equipment_sensor_forecast.parquet
+  save_args: {compression: zstd}
+
+equipment_forecast_metrics:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/equipment_forecast_metrics.parquet
+  save_args: {compression: zstd}
+
+equipment_risk_forecast:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/equipment_risk_forecast.parquet
+  save_args: {compression: zstd}
+
+equipment_forecast_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/equipment_forecast_summary.json
+  save_args: {indent: 2}
+
 alert_episode_details:
   type: pandas.ParquetDataset
   filepath: data/07_model_output/alert_episode_details.parquet

@@ -1,0 +1,8 @@
+condition_forecasting:
+  horizon_days: 30
+  history_days: 180
+  lags: [1, 2, 3, 7, 14, 28]
+  ridge_alpha: 5.0
+  interval_z: 1.64
+  simulation_count: 150
+  random_state: 42
