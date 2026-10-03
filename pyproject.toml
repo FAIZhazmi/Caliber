@@ -16,6 +16,7 @@ dependencies = [
     "pandas==2.3.0",
     "pyarrow>=18,<22",
     "scikit-learn==1.7.2",
+    "shap>=0.52,<1",
 ]
 
 [project.optional-dependencies]

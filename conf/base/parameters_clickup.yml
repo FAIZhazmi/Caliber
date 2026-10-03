@@ -1,0 +1,10 @@
+# Applied only to verified incident history, never to the five example PPTX decks.
+# Cosine similarity displayed as 0-100%; flowchart requires strictly more than 75%.
+similarity_threshold: 0.75
+
+# Local Ollama model confirmed by `ollama list` during development.
+ollama_model: qwen3.5:4b
+# Direct Ollama Cloud fallback used only when the local service/model is unavailable.
+ollama_fallback_model: gemma4:31b
+# CPU-only local inference may require more than two minutes on a cold model.
+ollama_timeout_seconds: 240

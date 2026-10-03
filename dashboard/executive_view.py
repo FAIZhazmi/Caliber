@@ -9,6 +9,12 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from dashboard.clickup import (
+    ErikaError,
+    generate_and_create_progress_tracking,
+    progress_tracking_configuration_error,
+    progress_tracking_configured,
+)
 from dashboard.cards import render_gradient_cards
 from dashboard.filters import PredictiveFilters, render_predictive_inline_filters
 from dashboard.data import (
@@ -452,6 +458,64 @@ def _render_source_notice(summary: dict) -> None:
         st.warning("Verify source timestamp freshness before operational decisions.")
 
 
+@st.dialog("Create Progress Tracking", width="medium")
+def _progress_tracking_dialog(selected: dict[str, object]) -> None:
+    equipment_tag = str(selected["equipment_tag"])
+    st.write(f"Equipment: **{equipment_tag}**")
+    st.info(
+        "Task RCA dan usulan CAPA akan dibuat hanya di folder RCA & Action Management. "
+        "Kontennya menggunakan snapshot dan hasil machine learning Faiz; file PPTX hanya "
+        "menjadi acuan struktur laporan."
+    )
+    st.markdown(
+        """
+1. Task RCA dan setiap task CAPA harus direview terlebih dahulu oleh SME.
+2. Semua task baru masuk ke **TO REVIEW**.
+3. Jika action disetujui, SME wajib menetapkan PIC dan timeline, lalu memindahkan task ke **TO DO**.
+4. Saat pekerjaan dimulai, PIC mengubah status menjadi **IN PROGRES**, lalu **DONE** setelah selesai.
+        """
+    )
+    confirmed = st.checkbox(
+        "Saya memahami bahwa hasil AI masih berupa draft dan memerlukan persetujuan SME.",
+        key=f"progress_confirm_{equipment_tag}",
+    )
+    configured = progress_tracking_configured()
+    if not configured:
+        st.warning(
+            "Koneksi Progress Tracking belum aktif. "
+            f"{progress_tracking_configuration_error()} Perbaiki file .env lokal, lalu "
+            "restart proses dashboard."
+        )
+    if st.button(
+        "Create RCA & CAPA Tasks",
+        type="primary",
+        disabled=not confirmed or not configured,
+        key=f"progress_submit_{equipment_tag}",
+    ):
+        try:
+            with st.spinner("Generating RCA/CAPA and creating linked ClickUp tasks..."):
+                result = generate_and_create_progress_tracking(selected)
+            st.session_state[f"progress_result_{equipment_tag}"] = result
+        except ErikaError as exc:
+            st.error(str(exc))
+        except Exception as exc:  # Keep the dialog open and avoid a full dashboard crash.
+            st.error(f"Progress Tracking gagal dibuat: {exc}")
+
+    result = st.session_state.get(f"progress_result_{equipment_tag}")
+    if result:
+        st.success(
+            f"Task RCA dan {len(result['capa_tasks'])} task CAPA tersedia di ClickUp."
+        )
+        st.link_button("Open RCA task", result["rca_task"]["url"])
+        for index, task in enumerate(result["capa_tasks"], start=1):
+            st.link_button(f"Open CAPA task {index}", task["url"])
+            if task.get("link_error"):
+                st.warning(
+                    f"CAPA task {index} berhasil dibuat, tetapi link ke RCA gagal: "
+                    f"{task['link_error']}"
+                )
+
+
 def _render_priority_detail(
     selected: pd.Series,
     guidance: pd.DataFrame,
@@ -491,7 +555,18 @@ def _render_priority_detail(
         return
 
     matched = guidance.loc[guidance["equipment_tag"].eq(equipment_tag)]
-    st.markdown("#### Inspection guidance and reference")
+    if status in {"ACTION_NOW", "PLAN_MAINTENANCE"}:
+        guidance_title, tracking_action = st.columns([2.6, 1.4], vertical_alignment="center")
+        guidance_title.markdown("#### Inspection guidance and reference")
+        if tracking_action.button(
+            "Create Progress Tracking",
+            key=f"create_progress_{equipment_tag}",
+            type="primary",
+            width="stretch",
+        ):
+            _progress_tracking_dialog(selected.to_dict())
+    else:
+        st.markdown("#### Inspection guidance and reference")
     if matched.empty:
         st.info("Inspection guidance is not yet available for this equipment.")
         return

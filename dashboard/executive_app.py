@@ -1,4 +1,4 @@
-"""Standalone executive dashboard entry point (recommended port: 8501)."""
+"""Unified CALIBER dashboard entry point (recommended port: 8501)."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from dashboard.regression_viz import render_predictive_evidence  # noqa: E402
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
 
 st.set_page_config(
-    page_title="CALIBER | Executive Dashboard",
+    page_title="CALIBER | Unified Dashboard",
     page_icon="C",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -168,6 +168,9 @@ st.markdown(
         margin-right: 196px; box-shadow: 210px 0 0 0 rgba(238,244,252,.97);
       }
       [data-testid="stTabs"] [role="tablist"] { gap: clamp(4px, .65vw, 10px); padding-bottom: .55rem; }
+      [data-testid="stTabs"] [role="tablist"] {
+        overflow-x: visible; flex-wrap: wrap;
+      }
       [data-testid="stTabs"] [data-baseweb="tab-highlight"],
       [data-testid="stTabs"] [data-baseweb="tab-border"],
       [data-testid="stTabs"] .react-aria-SelectionIndicator { display: none !important; }
@@ -175,7 +178,7 @@ st.markdown(
       [data-testid="stTabs"] [role="tablist"]::after { content: none !important; display: none !important; }
       [data-testid="stTabs"] [role="tab"] {
         position: relative; height: auto; padding: 11px clamp(10px, 1.1vw, 24px); border-radius: 18px;
-        flex: 1 1 auto; justify-content: center;   /* tabs share the row evenly instead of bunching left */
+        flex: 0 0 auto; justify-content: center; white-space: nowrap;
         background: rgba(255,255,255,.38); border: 1px solid rgba(255,255,255,.75);
         transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
       }
@@ -238,8 +241,14 @@ def _load_filter_sources():
     except Exception as exc:  # noqa: BLE001 - connection feedback belongs in the UI
         from dashboard.data import load_dashboard_data
 
-        risk, _, _ = load_dashboard_data(REPORTING_DIRECTORY)
-        equipment_dim = risk[["equipment_tag", "equipment_type", "equipment_class", "discipline", "plant"]].drop_duplicates()
+        from dashboard.data import DashboardDataError
+
+        columns = ["equipment_tag", "equipment_type", "equipment_class", "discipline", "plant"]
+        try:
+            risk, _, _ = load_dashboard_data(REPORTING_DIRECTORY)
+            equipment_dim = risk.reindex(columns=columns, fill_value="Unknown").drop_duplicates()
+        except DashboardDataError:
+            equipment_dim = pd.DataFrame(columns=columns)
         plants_dim = pd.DataFrame({"plant_code": sorted(equipment_dim["plant"].astype(str).unique())})
         today = date.today()
         return equipment_dim, plants_dim, None, today - timedelta(days=365), today, exc
