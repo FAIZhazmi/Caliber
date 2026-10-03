@@ -267,3 +267,20 @@ rca_rag_summary:
   type: json.JSONDataset
   filepath: data/08_reporting/rca_rag_summary.json
   save_args: {indent: 2}
+
+statistical_evaluation_report:
+  type: json.JSONDataset
+  filepath: data/07_model_output/statistical_evaluation_report.json
+  save_args: {indent: 2}
+
+calibration_curve_results:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/calibration_curve_results.parquet
+  save_args: {compression: zstd}
+
+statistical_evaluation_note:
+  type: text.TextDataset
+  filepath: docs/CALIBER_STATISTICAL_EVALUATION.md
+  fs_args:
+    open_args_load: {encoding: utf-8}
+    open_args_save: {encoding: utf-8}

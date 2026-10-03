@@ -1,0 +1,320 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-10-02T06:20:26.729592+00:00",
+  "confidence_level": 0.95,
+  "bootstrap_iterations": 500,
+  "refits_models": false,
+  "test_used_for_selection": false,
+  "event_level": {
+    "7d": {
+      "rolling_validation": {
+        "action": {
+          "event_recall": {
+            "successes": 16,
+            "trials": 19,
+            "estimate": 0.8421052631578947,
+            "low": 0.6042154487333258,
+            "high": 0.9661737509982353
+          },
+          "episode_precision": {
+            "successes": 16,
+            "trials": 41,
+            "estimate": 0.3902439024390244,
+            "low": 0.24201096717868845,
+            "high": 0.5549521766293108
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 25,
+            "exposure": 277.65092402464063,
+            "rate": 0.09004111939415455,
+            "low": 0.05826986495601766,
+            "high": 0.13291845444841802
+          },
+          "median_earliest_warning_days": 3.3629977703094482
+        },
+        "warning": {
+          "event_recall": {
+            "successes": 18,
+            "trials": 19,
+            "estimate": 0.9473684210526315,
+            "low": 0.7397193458047859,
+            "high": 0.9986683711958205
+          },
+          "episode_precision": {
+            "successes": 19,
+            "trials": 84,
+            "estimate": 0.2261904761904762,
+            "low": 0.14201420551708555,
+            "high": 0.3304708683006268
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 65,
+            "exposure": 277.65092402464063,
+            "rate": 0.23410691042480183,
+            "low": 0.1806787710340277,
+            "high": 0.29838847504976823
+          },
+          "median_earliest_warning_days": 3.80932879447937
+        }
+      },
+      "test": {
+        "action": {
+          "event_recall": {
+            "successes": 10,
+            "trials": 10,
+            "estimate": 1.0,
+            "low": 0.6915028921812392,
+            "high": 1.0
+          },
+          "episode_precision": {
+            "successes": 10,
+            "trials": 23,
+            "estimate": 0.43478260869565216,
+            "low": 0.23191419953823145,
+            "high": 0.6550533925476254
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 13,
+            "exposure": 139.17043121149896,
+            "rate": 0.09341064683663834,
+            "low": 0.049737235350549615,
+            "high": 0.15973505093459886
+          },
+          "median_earliest_warning_days": 2.6730902194976807
+        },
+        "warning": {
+          "event_recall": {
+            "successes": 10,
+            "trials": 10,
+            "estimate": 1.0,
+            "low": 0.6915028921812392,
+            "high": 1.0
+          },
+          "episode_precision": {
+            "successes": 12,
+            "trials": 70,
+            "estimate": 0.17142857142857143,
+            "low": 0.09184220742768566,
+            "high": 0.28030841090506675
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 58,
+            "exposure": 139.17043121149896,
+            "rate": 0.416755193578848,
+            "low": 0.3164596911632677,
+            "high": 0.5387527299584847
+          },
+          "median_earliest_warning_days": 4.009438514709473
+        }
+      }
+    },
+    "30d": {
+      "rolling_validation": {
+        "action": {
+          "event_recall": {
+            "successes": 17,
+            "trials": 21,
+            "estimate": 0.8095238095238095,
+            "low": 0.5809339588164721,
+            "high": 0.9455364318215932
+          },
+          "episode_precision": {
+            "successes": 17,
+            "trials": 31,
+            "estimate": 0.5483870967741935,
+            "low": 0.36034232716081727,
+            "high": 0.7268350139962649
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 14,
+            "exposure": 240.39425051334703,
+            "rate": 0.05823766570999043,
+            "low": 0.031839073771340626,
+            "high": 0.0977129073248422
+          },
+          "median_earliest_warning_days": 29.97428321838379
+        },
+        "warning": {
+          "event_recall": {
+            "successes": 20,
+            "trials": 21,
+            "estimate": 0.9523809523809523,
+            "low": 0.761840090063179,
+            "high": 0.9987951165516364
+          },
+          "episode_precision": {
+            "successes": 21,
+            "trials": 102,
+            "estimate": 0.20588235294117646,
+            "low": 0.13219408223366594,
+            "high": 0.2973299994959799
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 81,
+            "exposure": 240.39425051334703,
+            "rate": 0.3369464944649446,
+            "low": 0.26758415335134617,
+            "high": 0.41879372724240504
+          },
+          "median_earliest_warning_days": 29.961620330810547
+        }
+      },
+      "test": {
+        "action": {
+          "event_recall": {
+            "successes": 10,
+            "trials": 10,
+            "estimate": 1.0,
+            "low": 0.6915028921812392,
+            "high": 1.0
+          },
+          "episode_precision": {
+            "successes": 10,
+            "trials": 18,
+            "estimate": 0.5555555555555556,
+            "low": 0.3075716589987562,
+            "high": 0.7846984926127001
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 8,
+            "exposure": 124.05749486652978,
+            "rate": 0.06448622881355932,
+            "low": 0.027840576504179697,
+            "high": 0.1270635783606022
+          },
+          "median_earliest_warning_days": 29.9855899810791
+        },
+        "warning": {
+          "event_recall": {
+            "successes": 10,
+            "trials": 10,
+            "estimate": 1.0,
+            "low": 0.6915028921812392,
+            "high": 1.0
+          },
+          "episode_precision": {
+            "successes": 11,
+            "trials": 133,
+            "estimate": 0.08270676691729323,
+            "low": 0.0420108144239315,
+            "high": 0.14316626566952279
+          },
+          "false_episode_rate_per_equipment_month": {
+            "count": 122,
+            "exposure": 124.05749486652978,
+            "rate": 0.9834149894067796,
+            "low": 0.8166667114347794,
+            "high": 1.174198866488378
+          },
+          "median_earliest_warning_days": 29.971179962158203
+        }
+      }
+    }
+  },
+  "baselines": {
+    "7d": {
+      "prevalence_average_precision": 0.014058106841611996,
+      "model_auc": 0.9723761941375352,
+      "baseline_auc": 0.7940044237068556,
+      "average_precision_cluster_bootstrap": {
+        "clusters": 20,
+        "valid_resamples": 500,
+        "failure_probability": {
+          "average_precision": 0.6120522635409357,
+          "ci_low": 0.4921351218696628,
+          "ci_high": 0.8580832743479065
+        },
+        "baseline_days_since_last_incident": {
+          "average_precision": 0.16027729107626268,
+          "ci_low": 0.019414589943182018,
+          "ci_high": 0.4181160686977219
+        },
+        "failure_probability_minus_baseline_days_since_last_incident": {
+          "difference": 0.451774972464673,
+          "ci_low": 0.13340475054734743,
+          "ci_high": 0.789434063326095,
+          "share_of_resamples_model_better": 0.998
+        }
+      },
+      "interpretation": "baseline_days_since_last_incident uses no sensor data. A strong baseline AUC means incidents are regular in time; the model earns credit only for the gap above it."
+    },
+    "30d": {
+      "prevalence_average_precision": 0.05877663991143094,
+      "model_auc": 0.9252870495537271,
+      "baseline_auc": 0.8334756213019492,
+      "average_precision_cluster_bootstrap": {
+        "clusters": 20,
+        "valid_resamples": 500,
+        "failure_probability": {
+          "average_precision": 0.5050208615006684,
+          "ci_low": 0.37756181067524225,
+          "ci_high": 0.910794314464695
+        },
+        "baseline_days_since_last_incident": {
+          "average_precision": 0.32043919423952555,
+          "ci_low": 0.08727685160574856,
+          "ci_high": 0.6208921987984148
+        },
+        "failure_probability_minus_baseline_days_since_last_incident": {
+          "difference": 0.18458166726114283,
+          "ci_low": -0.17883006761641448,
+          "ci_high": 0.7366683740388815,
+          "share_of_resamples_model_better": 0.826
+        }
+      },
+      "interpretation": "baseline_days_since_last_incident uses no sensor data. A strong baseline AUC means incidents are regular in time; the model earns credit only for the gap above it."
+    }
+  },
+  "calibration": {
+    "7d": {
+      "calibrator_fitted_on": "rolling_validation",
+      "scored_on": "test",
+      "calibration_events": 19,
+      "raw_score": {
+        "brier_score": 0.06391926359380588,
+        "brier_skill_vs_prevalence": -3.6116209435772157,
+        "expected_calibration_error": 0.07410616388593368
+      },
+      "isotonic": {
+        "brier_score": 0.008473794598037427,
+        "brier_skill_vs_prevalence": 0.38863612559410443,
+        "expected_calibration_error": 0.006057685503714099
+      },
+      "ranking_check": {
+        "raw_average_precision": 0.6120522635409357,
+        "isotonic_average_precision": 0.5820088603224943
+      },
+      "decision": "calibrated_probability_display_supported",
+      "decision_rule": {
+        "max_expected_calibration_error": 0.05,
+        "minimum_calibration_events": 15
+      },
+      "caveat": "Reliability intervals are row-level Wilson intervals and understate uncertainty because hourly rows are correlated; read them as a lower bound on the real spread."
+    },
+    "30d": {
+      "calibrator_fitted_on": "rolling_validation",
+      "scored_on": "test",
+      "calibration_events": 21,
+      "raw_score": {
+        "brier_score": 0.09237977668808148,
+        "brier_skill_vs_prevalence": -0.6698576697366894,
+        "expected_calibration_error": 0.0899066619180052
+      },
+      "isotonic": {
+        "brier_score": 0.041634282487503345,
+        "brier_skill_vs_prevalence": 0.24741833734362073,
+        "expected_calibration_error": 0.02996557777637186
+      },
+      "ranking_check": {
+        "raw_average_precision": 0.5050208615006684,
+        "isotonic_average_precision": 0.4301831908555668
+      },
+      "decision": "calibrated_probability_display_supported",
+      "decision_rule": {
+        "max_expected_calibration_error": 0.05,
+        "minimum_calibration_events": 15
+      },
+      "caveat": "Reliability intervals are row-level Wilson intervals and understate uncertainty because hourly rows are correlated; read them as a lower bound on the real spread."
+    }
+  }
+}

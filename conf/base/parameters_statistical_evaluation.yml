@@ -1,0 +1,11 @@
+statistical_evaluation:
+  confidence_level: 0.95
+  random_state: 2026
+  bootstrap_iterations: 500
+  observation_start: "2023-10-02"
+  evaluation_split: "test"
+  calibration_split: "rolling_validation"
+  reliability_bin_edges: [0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1.0]
+  calibration_decision:
+    max_expected_calibration_error: 0.05
+    minimum_calibration_events: 15

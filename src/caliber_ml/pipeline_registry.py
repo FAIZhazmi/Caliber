@@ -16,6 +16,9 @@ from caliber_ml.pipelines.prediction_publishing import (
     create_pipeline as create_prediction_publishing_pipeline,
 )
 from caliber_ml.pipelines.rca_rag import create_pipeline as create_rca_rag_pipeline
+from caliber_ml.pipelines.statistical_evaluation import (
+    create_pipeline as create_statistical_evaluation_pipeline,
+)
 
 
 def register_pipelines() -> dict[str, Pipeline]:
@@ -26,6 +29,7 @@ def register_pipelines() -> dict[str, Pipeline]:
     competition_readiness_pipeline = create_competition_readiness_pipeline()
     rca_rag_pipeline = create_rca_rag_pipeline()
     model_hardening_pipeline = create_model_hardening_pipeline()
+    statistical_evaluation_pipeline = create_statistical_evaluation_pipeline()
     return {
         "feature_engineering": feature_pipeline,
         "predictive_maintenance": predictive_maintenance_pipeline,
@@ -33,6 +37,7 @@ def register_pipelines() -> dict[str, Pipeline]:
         "competition_readiness": competition_readiness_pipeline,
         "model_hardening": model_hardening_pipeline,
         "rca_rag": rca_rag_pipeline,
+        "statistical_evaluation": statistical_evaluation_pipeline,
         "__default__": (
             feature_pipeline
             + predictive_maintenance_pipeline
