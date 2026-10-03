@@ -1012,6 +1012,6 @@ def render_regression_analysis(project_root: Path) -> None:
         _render_combined(data)
         _render_linear_appendix(data)
     st.caption(
-        "Data didominasi data sintetis. Hasil menunjukkan asosiasi, bukan penyebab. "
+        "Hasil menunjukkan asosiasi, bukan penyebab. "
         "Estimasi waktu kejadian memerlukan model survival/time-to-event terpisah."
     )

@@ -221,6 +221,16 @@ ATTENTION_CARD_STYLES = """
     font-size: .84rem;
   }
   .cal-top-equipment strong { color: #102a5e; }
+  /* White layer wrapping the explanation inside the Decision details box. */
+  .st-key-decision_layer {
+    box-sizing: border-box;
+    margin-top: .65rem;
+    padding: 1.2rem 1.4rem 1.1rem;
+    background: rgba(255,255,255,.94);
+    border: 1px solid rgba(226,232,240,.95);
+    border-radius: 20px;
+    box-shadow: 0 10px 28px rgba(51,65,85,.08);
+  }
   @media (max-width: 900px) {
     .cal-priority-grid,
     .cal-plant-grid { grid-template-columns: 1fr; }
@@ -438,17 +448,7 @@ def _inspection_steps(value: object) -> list[str]:
 
 
 def _render_source_notice(summary: dict) -> None:
-    source_status = summary.get("source_time_status")
-    if source_status == "SYNTHETIC_DEMO_SNAPSHOT":
-        st.info(
-            _en(
-                summary.get(
-                    "synthetic_snapshot_note",
-                    "The snapshot uses synthetic data for simulation.",
-                )
-            )
-        )
-    elif source_status in {"FUTURE_SOURCE_TIMESTAMP", "STALE_SOURCE_TIMESTAMP"}:
+    if summary.get("source_time_status") in {"FUTURE_SOURCE_TIMESTAMP", "STALE_SOURCE_TIMESTAMP"}:
         st.warning("Verify source timestamp freshness before operational decisions.")
 
 
@@ -526,15 +526,6 @@ def render_predictive_maintenance_executive(
         st.error(str(exc))
         return
 
-    snapshot = pd.Timestamp(summary["scoring_timestamp"])
-    st.markdown(
-        f"<div class='executive-header'>"
-        f"<div class='executive-kicker'>ASSET RELIABILITY</div>"
-        f"<div class='executive-title'>Executive Maintenance Overview</div>"
-        f"<div class='executive-subtitle'>Decision priorities · Snapshot "
-        f"{snapshot.strftime('%d %b %Y %H:%M')}</div></div>",
-        unsafe_allow_html=True,
-    )
     _render_source_notice(summary)
 
     scoped = equipment_risk
@@ -542,10 +533,9 @@ def render_predictive_maintenance_executive(
         st.info("No equipment is available in the current risk snapshot.")
         return
 
-    st.markdown("## Fleet monitoring")
-    st.caption(
-        f"Ringkasan ini selalu membaca seluruh {len(scoped)} equipment dan tidak "
-        "dipengaruhi filter equipment pada bagian detail."
+    st.markdown(
+        "## Fleet monitoring",
+        help=f"Covers all {len(scoped)} equipment regardless of the filters below.",
     )
 
     action_count = int(
@@ -563,6 +553,7 @@ def render_predictive_maintenance_executive(
                 "detail": f"{action_count / total_equipment * 100:.0f}% of fleet",
                 "palette": "coral",
                 "icon": "!",
+                "help": "Equipment whose 7-day or 30-day risk score has crossed its action threshold.",
             },
             {
                 "label": "Needs monitoring",
@@ -570,6 +561,7 @@ def render_predictive_maintenance_executive(
                 "detail": f"{monitor_count / total_equipment * 100:.0f}% of fleet",
                 "palette": "purple",
                 "icon": "◎",
+                "help": "Equipment still below the action threshold but already above the warning threshold.",
             },
             {
                 "label": "Data quality review",
@@ -577,6 +569,10 @@ def render_predictive_maintenance_executive(
                 "detail": f"{review_count / total_equipment * 100:.0f}% of fleet",
                 "palette": "blue",
                 "icon": "◇",
+                "help": (
+                    "Equipment whose latest data is missing, unusual or inconsistent, "
+                    "so its alerts are on hold until the data is checked."
+                ),
             },
             {
                 "label": "Normal",
@@ -584,19 +580,21 @@ def render_predictive_maintenance_executive(
                 "detail": f"{normal_count / total_equipment * 100:.0f}% of fleet",
                 "palette": "green",
                 "icon": "✓",
+                "help": "Equipment with both risk scores below their warning thresholds.",
             },
         ]
     )
 
     model_30d = summary.get("models", {}).get("30d", {})
-    if model_30d.get("release_status") == "EXPERIMENTAL":
-        st.warning(
-            "The 30-day warning is still experimental and is used for "
-            "inspection prioritization, not automatic shutdown decisions."
-        )
+    priorities_help = (
+        "The 30-day warning is experimental and guides inspection priority, "
+        "not automatic shutdowns."
+        if model_30d.get("release_status") == "EXPERIMENTAL"
+        else None
+    )
 
     st.markdown(ATTENTION_CARD_STYLES, unsafe_allow_html=True)
-    st.markdown("## Decision priorities")
+    st.markdown("## Decision priorities", help=priorities_help)
     priority = build_executive_priority(scoped)
     if priority.empty:
         st.success("No equipment requires additional attention.")
@@ -615,23 +613,41 @@ def render_predictive_maintenance_executive(
         ].sum(axis=1).gt(0)
     ]
     if not attention_plants.empty:
-        st.markdown("## Plants needing attention")
+        st.markdown(
+            "## Plants needing attention",
+            help=(
+                "Summarizes all equipment within each plant that needs attention, "
+                "while Decision priorities ranks individual equipment."
+            ),
+        )
         _render_plant_attention_cards(attention_plants)
 
     st.divider()
-    predictive_filters = render_predictive_inline_filters(
-        scoped["equipment_tag"].dropna().astype(str).tolist()
+    st.markdown(
+        "## Decision details",
+        help=(
+            "Pick any equipment (including NORMAL) to see its decision details and "
+            "prediction evidence, with the main parameter auto-selected from the "
+            "largest sensor deviation."
+        ),
     )
-    st.markdown("## Decision details")
-    selected = scoped.loc[
-        scoped["equipment_tag"].eq(predictive_filters.equipment_tag)
-    ].iloc[0]
     with st.container(border=True):
-        _render_priority_detail(selected, inspection_guidance)
+        predictive_filters = render_predictive_inline_filters(
+            scoped["equipment_tag"].dropna().astype(str).tolist()
+        )
+        selected = scoped.loc[
+            scoped["equipment_tag"].eq(predictive_filters.equipment_tag)
+        ].iloc[0]
+        with st.container(key="decision_layer"):
+            _render_priority_detail(selected, inspection_guidance)
+    return predictive_filters
 
+
+def render_predictive_footer() -> None:
+    """Closing note for the very bottom of the predictive workspace, like a source line."""
+    st.divider()
     st.caption(
         "CALIBER is decision support. Maintenance decisions still follow "
         "applicable operating procedures and authorization."
     )
-    return predictive_filters
 

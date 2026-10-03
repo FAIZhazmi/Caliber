@@ -51,6 +51,17 @@ def date_bounds() -> tuple[date, date]:
     return row["min_d"], row["max_d"]
 
 
+def data_freshness() -> dict:
+    """Newest entry of each fact table (plant-local time), for the 'last updated' line."""
+    return db.run_query(
+        "SELECT (SELECT MAX(timestamp) FROM fact_production_hourly) AS production, "
+        "(SELECT MAX(timestamp) FROM fact_environmental_hourly) AS environmental, "
+        "(SELECT MAX(date) FROM fact_condition_weekly) AS weekly, "
+        "(SELECT MAX(failure_date) FROM fact_incident) AS incident, "
+        "(SELECT MAX(COALESCE(completed_date, scheduled_date)) FROM fact_pm_schedule) AS pm"
+    ).iloc[0].to_dict()
+
+
 # ----------------------------------------------------------------------- KPI
 def kpi_bundle(tags: tuple[str, ...], date_from: date, date_to: date) -> dict:
     start, end = _start(date_from), _end_exclusive(date_to)
@@ -304,7 +315,7 @@ def downtime_detail(
         "fact_incident i JOIN dim_equipment e ON e.equipment_tag = i.equipment_tag",
         "i.equipment_tag = ANY(:tags) AND i.failure_date >= :start AND i.failure_date < :end",
         _tag_range_params(tags, date_from, date_to),
-        "i.downtime_hours DESC, i.failure_date DESC", limit,
+        "i.failure_date DESC, i.equipment_tag", limit,
     )
 
 

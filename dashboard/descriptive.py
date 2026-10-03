@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pandas as pd
 import streamlit as st
 
@@ -35,6 +37,40 @@ def _fmt(value: float, suffix: str = "", decimals: int = 1) -> str:
     if value is None or pd.isna(value):
         return "—"
     return f"{value:,.{decimals}f}{suffix}"
+
+
+WIB = timezone(timedelta(hours=7))  # the plant-local clock the data is stamped in (no DST)
+STALE_AFTER = timedelta(hours=3)  # no new hourly reading for this long turns the dot orange
+
+
+def _stamp(value, fmt: str = "%d %b %Y, %H:%M") -> str:
+    return "—" if value is None or pd.isna(value) else f"{pd.Timestamp(value):{fmt}}"
+
+
+def render_data_freshness() -> None:
+    """'Last updated' line: the newest hourly reading, with each source's latest entry in the tooltip."""
+    latest = queries.data_freshness()
+    hourly = [latest[key] for key in ("production", "environmental") if not pd.isna(latest[key])]
+    if not hourly:
+        return
+    newest = max(hourly)
+    stale = datetime.now(WIB).replace(tzinfo=None) - newest.to_pydatetime() > STALE_AFTER
+    sources = (
+        ("Production (hourly)", _stamp(latest["production"])),
+        ("Energy & emissions (hourly)", _stamp(latest["environmental"])),
+        ("Equipment condition (weekly)", f"week of {_stamp(latest['weekly'], '%d %b %Y')}"),
+        ("Incidents", _stamp(latest["incident"])),
+        ("PM schedule", _stamp(latest["pm"], "%d %b %Y")),
+    )
+    help_text = (
+        "Newest entry in each data source (WIB). The dashboard re-reads Supabase every 5 minutes.\n\n"
+        + "\n".join(f"- {name}: {when}" for name, when in sources)
+        + "\n\nThe dot turns orange when there has been no new hourly reading for over 3 hours."
+    )
+    with st.container(horizontal=True, horizontal_alignment="right", key="data_freshness"):
+        st.markdown(
+            f":{'orange' if stale else 'green'}[●] Last updated **{_stamp(newest)} WIB**", help=help_text
+        )
 
 
 LOSS_KEYS = ("production_loss_ton", "estimated_loss_kusd")
@@ -77,9 +113,11 @@ def render_kpi_row(
     }
     for start in range(0, len(keys), 5):
         row_keys = keys[start : start + 5]
-        for column, key in zip(st.columns(len(row_keys)), row_keys):
-            label, value = labels[key]
-            column.metric(label, value, help=LOSS_HELP if key in LOSS_KEYS else None)
+        # The keyed container lets executive_app.py reflow these columns into a responsive grid.
+        with st.container(key=f"kpi_row_{start}"):
+            for column, key in zip(st.columns(len(row_keys)), row_keys):
+                label, value = labels[key]
+                column.metric(label, value, help=LOSS_HELP if key in LOSS_KEYS else None)
 
 
 PAGER_SLOTS = 7  # number buttons and ellipses shown between Previous and Next
@@ -206,14 +244,12 @@ CHART_HELP = {
     "power": "Average daily power draw (kW) of the selected equipment.",
     "parameter": "Weekly readings of the chosen parameter against its alarm and trip limits.",
     "emissions_trend": (
-        "Monitored equipment currently covers only part of the total plant assets. "
-        "Do not compute contribution percentages against total_energy_kwh — it would "
-        "under-represent overall plant consumption."
+        "Monitored equipment covers only part of the plant assets, so don't use "
+        "total_energy_kwh as the base for contribution percentages."
     ),
     "emissions_composition": (
-        "Combined across all filtered plants (CO2 and VOC summed, NOx and SOx averaged). "
-        "Each pollutant is normalized to its own maximum in this range (0-1) because units "
-        "differ (ton, ppm, kg) — it is not an absolute share pie chart."
+        "All filtered plants combined (CO2 and VOC summed, NOx and SOx averaged), with each "
+        "pollutant scaled 0-1 to its own maximum, so it is not an absolute share."
     ),
 }
 
@@ -229,6 +265,8 @@ def _availability_ranking(filters: DescriptiveFilters) -> None:
             width="stretch", key="ov_availability",
         )
 
+
+DEFAULT_INCIDENT_EQUIPMENT = "PM-4405B"
 
 # Grouping choices for the downtime pareto and incident timeline: dataframe column -> label.
 INCIDENT_GROUPINGS = {"equipment_tag": "Equipment", "plant": "Plant"}
@@ -282,20 +320,22 @@ def _incident_deep_dive(filters: DescriptiveFilters) -> None:
     if incidents.empty:
         st.info("No incidents in the current filter range.")
         return
-    incidents = incidents.sort_values("failure_date", ascending=False)
-    options = list(incidents.index)
-    _clear_if_invalid("prod_zoom_incident", options)
-    selected_idx = st.selectbox(
-        "Incident",
-        options=options,
-        format_func=lambda i: (
-            f"{incidents.loc[i, 'equipment_tag']} • "
-            f"{incidents.loc[i, 'failure_date']:%d %b %Y %H:%M} • "
-            f"{incidents.loc[i, 'dominant_failure_mode']}"
-        ),
+    incidents = incidents.sort_values("failure_date", ascending=False).reset_index(drop=True)
+    # Labelled by content, not row number: new incidents arrive and the date window slides, which
+    # would otherwise shift every row number and silently change the selection.
+    labels = [
+        f"{row.equipment_tag} • {row.failure_date:%d %b %Y %H:%M} • {row.dominant_failure_mode}"
+        for row in incidents.itertuples()
+    ]
+    _clear_if_invalid("prod_zoom_incident", labels)
+    # Open on a fixed asset instead of the latest incident: a long outage (TK-6178A: 327 h) leaves
+    # the zoom chart flat after the trip. PM-4405B is also the predictive tab's default asset.
+    preferred = incidents.index[incidents["equipment_tag"] == DEFAULT_INCIDENT_EQUIPMENT]
+    selected = st.selectbox(
+        "Incident", options=labels, index=int(preferred[0]) if len(preferred) else 0,
         key="prod_zoom_incident",
     )
-    row = incidents.loc[selected_idx]
+    row = incidents.iloc[labels.index(selected)]
     window_before, window_after = st.columns(2)
     hours_before = window_before.slider("Before trip (hours)", 6, 168, 48, step=6, key="zoom_before")
     hours_after = window_after.slider("After trip (hours)", 6, 96, 24, step=6, key="zoom_after")
@@ -455,6 +495,7 @@ OVERVIEW_KPIS = (
 
 def render_overview_tab(filters: DescriptiveFilters, parameters_df: pd.DataFrame, plants_df: pd.DataFrame) -> None:
     """KPIs, then every chart (energy & emissions last), then all the detail tables."""
+    render_data_freshness()
     render_kpi_row(filters, OVERVIEW_KPIS, title="Key Performance Indicators")
 
     if filters.equipment_tags:

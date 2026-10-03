@@ -16,7 +16,10 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from dashboard import queries  # noqa: E402
 from dashboard.descriptive import render_overview_tab  # noqa: E402
-from dashboard.executive_view import render_predictive_maintenance_executive  # noqa: E402
+from dashboard.executive_view import (  # noqa: E402
+    render_predictive_footer,
+    render_predictive_maintenance_executive,
+)
 from dashboard.filters import render_sidebar_filters  # noqa: E402
 from dashboard.regression_viz import render_predictive_evidence  # noqa: E402
 
@@ -24,7 +27,7 @@ from dashboard.regression_viz import render_predictive_evidence  # noqa: E402
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
 
 st.set_page_config(
-    page_title="CALIBER | Executive Dashboard",
+    page_title="CORE - Centralized Operations & Reliability Engine",
     page_icon="C",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -85,6 +88,7 @@ st.markdown(
       /* ---- Banner: scrolls away with the page and reappears at the top (the tab bar stays pinned) ---- */
       div[data-testid="stElementContainer"]:has(.app-banner) {
         height: var(--banner-h); margin: 0; padding: 14px 0 10px 0; box-sizing: border-box;
+        container: banner / inline-size;   /* lets the banner react to its own width (sidebar open or not) */
       }
       .app-banner {
         position: relative; overflow: hidden; height: 84px; box-sizing: border-box;
@@ -113,11 +117,16 @@ st.markdown(
         width: 8px; height: 8px; border-radius: 50%; background: var(--amber);
         animation: banner-blink 1.4s ease-in-out infinite;
       }
+      /* CORE and its spelled-out name share one style; the name drops to its own line when the banner is narrow. */
       .app-banner-title {
-        font-size: 1.65rem; font-weight: 800; line-height: 1.15; letter-spacing: .005em; white-space: nowrap;
+        display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .45em;
+        font-size: clamp(.8rem, 2.6cqw, 1.9rem); line-height: 1.15;
         text-shadow: 0 2px 10px rgba(4,18,64,.35);
       }
-      .app-banner-title b {
+      .app-banner-title b,
+      .app-banner-title .app-banner-dash,
+      .app-banner-title .app-banner-expand {
+        font-weight: 800; letter-spacing: .02em;   /* Streamlit resets <b> to 600 */
         background: linear-gradient(90deg, #ffffff 0%, #ffd98a 100%);
         -webkit-background-clip: text; background-clip: text; color: transparent;
       }
@@ -131,6 +140,21 @@ st.markdown(
       @keyframes banner-blink { 50% { opacity: .25; transform: scale(.7); } }
       @keyframes banner-trace { 0% { stroke-dashoffset: 260; } 70%, 100% { stroke-dashoffset: 0; } }
       @media (prefers-reduced-motion: reduce) { .app-banner *, .app-banner::after { animation: none !important; } }
+      /* Narrow banner: drop the heartbeat animation and give the title the room it frees. */
+      @container banner (max-width: 1300px) {
+        .app-banner-pulse { display: none; }
+        .app-banner { padding-right: 190px; }
+      }
+      @container banner (max-width: 760px) {
+        .app-banner-title { flex-direction: column; align-items: flex-start; row-gap: 0; }
+        .app-banner-dash { display: none; }
+      }
+      @container banner (max-width: 640px) {
+        .app-banner { padding: 0 150px 0 16px; gap: 12px; }
+        .app-banner-orb { width: 40px; height: 40px; }
+        .app-banner-orb svg { width: 24px; height: 24px; }
+        .app-banner-kicker { font-size: .56rem; letter-spacing: .14em; }
+      }
       /* Toolbar (Stop / Deploy / menu) sits over the navy banner while the page is at the top, so it is
          light there. Once the banner has scrolled away (body.cal-scrolled, set by the script below) it
          returns to its normal spot in the header row with dark text. */
@@ -237,6 +261,65 @@ st.markdown(
       [class*="st-key-pager_"] .stButton > button:disabled { background: #fff; color: #8b97ad; cursor: default; opacity: 1; }
       [class*="st-key-pager_"] > div:first-child .stButton > button { border-radius: 10px 0 0 10px; }
       [class*="st-key-pager_"] > div:last-child .stButton > button { border-radius: 0 10px 10px 0; margin-right: 0; }
+      /* ---- KPI cards: reflow into as many columns as fit and scale text to the card, so nothing is cut off ---- */
+      [class*="st-key-kpi_row"] { container-type: inline-size; }
+      /* 5 cards per row when there is room (a row of 3 stretches to fill), then 3, then 2. */
+      [class*="st-key-kpi_row"] [data-testid="stHorizontalBlock"] {
+        display: grid !important; gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(calc((100% - 4rem) / 5), 1fr));
+      }
+      @container (max-width: 720px) {
+        [class*="st-key-kpi_row"] [data-testid="stHorizontalBlock"] {
+          grid-template-columns: repeat(auto-fit, minmax(calc((100% - 2rem) / 3), 1fr));
+        }
+      }
+      @container (max-width: 460px) {
+        [class*="st-key-kpi_row"] [data-testid="stHorizontalBlock"] {
+          grid-template-columns: repeat(auto-fit, minmax(calc((100% - 1rem) / 2), 1fr));
+        }
+      }
+      [class*="st-key-kpi_row"] [data-testid="stColumn"] { width: auto !important; min-width: 0 !important; flex: none !important; }
+      div[data-testid="stMetric"] { container-type: inline-size; }
+      div[data-testid="stMetricValue"],
+      div[data-testid="stMetricValue"] * {
+        font-size: clamp(1.15rem, 13cqw, 2.25rem); line-height: 1.15;
+        overflow: visible !important; text-overflow: clip !important; white-space: nowrap !important;
+      }
+      /* The label is a <label>, and Streamlit ellipsizes it: let long names wrap onto a second line instead. */
+      [data-testid="stMetricLabel"],
+      [data-testid="stMetricLabel"] * { overflow: visible !important; text-overflow: clip !important; white-space: normal !important; }
+      /* ---- Workspace switch (Predictive / Descriptive): the original tab-bar look, pinned while scrolling ---- */
+      .st-key-analytics_workspace {
+        position: sticky; top: 0; z-index: 998;
+        background: rgba(238,244,252,.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        margin-inline: -14px; padding: .6rem 14px .55rem; border-radius: 24px;
+        transition: margin-right .25s ease, box-shadow .25s ease;
+      }
+      /* Once the banner has scrolled away the toolbar shares this row: leave room for it (width is 100% by default). */
+      body.cal-scrolled .st-key-analytics_workspace {
+        width: auto !important; margin-right: 196px; box-shadow: 210px 0 0 0 rgba(238,244,252,.97);
+      }
+      .st-key-analytics_workspace [data-testid="stWidgetLabel"] { display: none; }
+      .st-key-analytics_workspace [role="radiogroup"] {
+        display: flex; width: 100%; gap: clamp(4px, .65vw, 10px);
+        padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+      }
+      .st-key-analytics_workspace button[role="radio"] {
+        flex: 1 1 auto; justify-content: center; height: auto; min-height: 0;
+        padding: 11px clamp(10px, 1.1vw, 24px); border-radius: 18px;
+        background: rgba(255,255,255,.38); border: 1px solid rgba(255,255,255,.75); box-shadow: none;
+        transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+      }
+      .st-key-analytics_workspace button[role="radio"] p { color: #35508a; font-weight: 700; font-size: .95rem; }
+      .st-key-analytics_workspace button[role="radio"]:hover { background: rgba(255,255,255,.75); transform: translateY(-1px); }
+      .st-key-analytics_workspace button[role="radio"]:hover p { color: #0f3d91; }
+      .st-key-analytics_workspace button[role="radio"][aria-checked="true"],
+      .st-key-analytics_workspace button[role="radio"][aria-checked="true"]:hover {
+        background: linear-gradient(135deg, #0d3180 0%, #1f5fd6 55%, #2bb0f0 100%);
+        border-color: rgba(255,255,255,.55); box-shadow: 0 10px 24px rgba(31,95,214,.38); transform: none;
+      }
+      .st-key-analytics_workspace button[role="radio"][aria-checked="true"] p,
+      .st-key-analytics_workspace button[role="radio"][aria-checked="true"]:hover p { color: #ffffff; font-weight: 800; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -271,7 +354,7 @@ st.markdown(
       </div>
       <div class="app-banner-text">
         <div class="app-banner-kicker"><span class="app-banner-dot"></span>LIVE PLANT INTELLIGENCE</div>
-        <div class="app-banner-title">Unified <b>Manufacture Intelligence</b> Dashboard</div>
+        <div class="app-banner-title"><b>CORE</b><span class="app-banner-dash">-</span><span class="app-banner-expand">Centralized Operations &amp; Reliability Engine</span></div>
       </div>
       <svg class="app-banner-pulse" viewBox="0 0 170 40" preserveAspectRatio="none">
         <path class="base" d="M0 20 H170"/>
@@ -310,6 +393,7 @@ if analytics_mode == "Predictive Analytics":
             equipment=predictive_filters.equipment_tag,
             horizon_days=predictive_filters.horizon_days,
         )
+    render_predictive_footer()
 else:
     (equipment_dim, plants_dim, parameters_dim, min_date, max_date, db_error) = (
         _load_filter_sources()
@@ -319,14 +403,6 @@ else:
         plants_dim,
         min_date,
         max_date,
-    )
-    st.markdown(
-        "<div class='executive-header'>"
-        "<div class='executive-kicker'>DESCRIPTIVE ANALYTICS</div>"
-        "<div class='executive-title'>Historical Operations Overview</div>"
-        "<div class='executive-subtitle'>Production, incidents, equipment performance, "
-        "downtime, energy, and emissions.</div></div>",
-        unsafe_allow_html=True,
     )
     if db_error is not None:
         st.error(f"Descriptive analytics cannot connect to Supabase: {db_error}")
