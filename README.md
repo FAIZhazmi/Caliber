@@ -30,15 +30,21 @@ python Caliber.py run --pipelines feature_engineering
 python Caliber.py run --pipelines predictive_maintenance
 # Recalibrate saved scores from rolling validation and add input guardrails:
 python Caliber.py run --pipelines model_hardening
+# Persist 30-day autoregressive sensor and risk forecasts for dashboard deployment:
+python Caliber.py run --pipelines condition_forecasting
 # Build episode, robustness, SHAP, model-card, and demo evidence:
 python Caliber.py run --pipelines competition_readiness
 # Retrieve precedents only from the five verified RCA cases:
 python Caliber.py run --pipelines rca_rag
 # Explicitly publish persistent non-normal snapshots after model validation:
 python Caliber.py run --pipelines prediction_publishing
-# Or rebuild features, train both models, and harden them in one run:
+# Or rebuild features, train and harden both models, then persist forecasts in one run:
 python Caliber.py run
 ```
+
+The `condition_forecasting` pipeline writes compact, versioned artifacts under
+`data/07_model_output` and `data/08_reporting`. The executive dashboard reads these files
+without retraining on page load; runtime training remains a local-development fallback only.
 
 The endpoint and logical-to-physical table mapping live in
 `conf/base/parameters_feature_engineering.yml`. The defaults expect:

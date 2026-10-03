@@ -104,6 +104,47 @@ def _load_forecast_dataset(project_root: str) -> tuple[pd.DataFrame, pd.DataFram
 
 
 @st.cache_data(ttl=60, show_spinner=False)
+def _load_forecast_artifacts(
+    project_root: str,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Load compact versioned forecasts; empty frames trigger the legacy fallback."""
+    root = Path(project_root)
+    paths = {
+        "history": root / "data/08_reporting/equipment_forecast_history.parquet",
+        "forecast": root / "data/08_reporting/equipment_sensor_forecast.parquet",
+        "metrics": root / "data/07_model_output/equipment_forecast_metrics.parquet",
+        "risk": root / "data/08_reporting/equipment_risk_forecast.parquet",
+    }
+    events = pd.DataFrame(columns=["equipment_tag", "failure_date"])
+    event_path = root / "data/07_model_output/failure_event_audit.parquet"
+    if event_path.exists():
+        events = pd.read_parquet(event_path, columns=["equipment_tag", "failure_date"])
+        events["failure_date"] = pd.to_datetime(events["failure_date"])
+    if not all(path.exists() for path in paths.values()):
+        empty = pd.DataFrame()
+        return empty, empty, empty, empty, events
+
+    history = pd.read_parquet(paths["history"])
+    forecast = pd.read_parquet(paths["forecast"])
+    metrics = pd.read_parquet(paths["metrics"])
+    risk = pd.read_parquet(paths["risk"])
+    required = {
+        "history": {"equipment_tag", "date", *SENSORS},
+        "forecast": {"equipment_tag", "sensor", "date", "horizon_day", "forecast", "lower", "upper"},
+        "metrics": {"equipment_tag", "sensor", "mae", "naive_mae", "better_than_naive", "residual_sigma", "holdout_days"},
+        "risk": {"equipment_tag", "date", "segment", "risk", "risk_lower", "risk_upper"},
+    }
+    frames = {"history": history, "forecast": forecast, "metrics": metrics, "risk": risk}
+    if any(not columns.issubset(frames[name].columns) for name, columns in required.items()):
+        empty = pd.DataFrame()
+        return empty, empty, empty, empty, events
+    history["date"] = pd.to_datetime(history["date"])
+    forecast["date"] = pd.to_datetime(forecast["date"])
+    risk["date"] = pd.to_datetime(risk["date"])
+    return history, forecast, metrics, risk, events
+
+
+@st.cache_data(ttl=60, show_spinner=False)
 def _load_dominant_signals(project_root: str) -> pd.DataFrame:
     """Load the production model's latest dominant sensor deviation."""
     reporting = Path(project_root) / "data/08_reporting"
@@ -373,9 +414,16 @@ def render_predictive_forecast_evidence(
     horizon: int | None = None,
 ) -> None:
     """Render forecast evidence, optionally controlled by external filters."""
-    daily, events = _load_forecast_dataset(str(project_root))
+    artifact_history, artifact_forecast, artifact_metrics, artifact_risk, events = (
+        _load_forecast_artifacts(str(project_root))
+    )
+    using_artifacts = not artifact_history.empty
+    if using_artifacts:
+        daily = artifact_history
+    else:
+        daily, events = _load_forecast_dataset(str(project_root))
     if daily.empty:
-        st.warning("Data harian untuk forecast belum tersedia.")
+        st.warning("Artifact forecast dan data harian fallback belum tersedia.")
         return
 
     label_to_sensor = {label: sensor for sensor, label in SENSORS.items()}
@@ -422,22 +470,50 @@ def render_predictive_forecast_evidence(
     sensor = str(parameter)
     horizon = int(horizon)
     history = daily.loc[daily["equipment_tag"].eq(equipment)].sort_values("date").copy()
-    sensor_forecasts: dict[str, pd.DataFrame] = {}
-    selected_quality: dict = {}
-    with st.spinner("Menghitung forecast sensor dan proyeksi risiko..."):
-        for sensor_name in SENSORS:
-            series = history.set_index("date")[sensor_name]
-            if sensor_name == sensor:
-                sensor_forecasts[sensor_name], selected_quality = _forecast_sensor(series, horizon)
-            else:
-                sensor_forecasts[sensor_name], _ = _forecast_sensor_core(series, horizon)
-        risk_history, risk_future, validation_auc = _project_future_risk(
-            daily,
-            history,
-            sensor_forecasts,
+    if using_artifacts:
+        selected_forecast = artifact_forecast.loc[
+            artifact_forecast["equipment_tag"].eq(equipment)
+            & artifact_forecast["sensor"].eq(sensor)
+            & artifact_forecast["horizon_day"].le(horizon)
+        ].sort_values("horizon_day")
+        quality = artifact_metrics.loc[
+            artifact_metrics["equipment_tag"].eq(equipment)
+            & artifact_metrics["sensor"].eq(sensor)
+        ]
+        equipment_risk = artifact_risk.loc[
+            artifact_risk["equipment_tag"].eq(equipment)
+        ].sort_values("date")
+        risk_history = equipment_risk.loc[
+            equipment_risk["segment"].eq("history"), ["date", "risk"]
+        ]
+        risk_future = equipment_risk.loc[
+            equipment_risk["segment"].eq("forecast")
+        ].head(horizon)
+        if selected_forecast.empty or quality.empty or risk_future.empty:
+            st.warning(f"Artifact forecast untuk {equipment} belum lengkap.")
+            return
+        selected_quality = quality.iloc[0].to_dict()
+        validation_auc = (
+            float(equipment_risk["validation_auc"].dropna().iloc[0])
+            if "validation_auc" in equipment_risk and equipment_risk["validation_auc"].notna().any()
+            else float("nan")
         )
-
-    selected_forecast = sensor_forecasts[sensor]
+    else:
+        sensor_forecasts: dict[str, pd.DataFrame] = {}
+        selected_quality: dict = {}
+        with st.spinner("Menghitung forecast sensor dan proyeksi risiko..."):
+            for sensor_name in SENSORS:
+                series = history.set_index("date")[sensor_name]
+                if sensor_name == sensor:
+                    sensor_forecasts[sensor_name], selected_quality = _forecast_sensor(series, horizon)
+                else:
+                    sensor_forecasts[sensor_name], _ = _forecast_sensor_core(series, horizon)
+            risk_history, risk_future, validation_auc = _project_future_risk(
+                daily,
+                history,
+                sensor_forecasts,
+            )
+        selected_forecast = sensor_forecasts[sensor]
     latest_value = float(history[sensor].iloc[-1])
     end_value = float(selected_forecast["forecast"].iloc[-1])
     forecast_change = end_value - latest_value

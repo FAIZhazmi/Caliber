@@ -2,6 +2,9 @@
 
 from kedro.pipeline import Pipeline
 
+from caliber_ml.pipelines.condition_forecasting import (
+    create_pipeline as create_condition_forecasting_pipeline,
+)
 from caliber_ml.pipelines.competition_readiness import (
     create_pipeline as create_competition_readiness_pipeline,
 )
@@ -26,16 +29,19 @@ def register_pipelines() -> dict[str, Pipeline]:
     competition_readiness_pipeline = create_competition_readiness_pipeline()
     rca_rag_pipeline = create_rca_rag_pipeline()
     model_hardening_pipeline = create_model_hardening_pipeline()
+    condition_forecasting_pipeline = create_condition_forecasting_pipeline()
     return {
         "feature_engineering": feature_pipeline,
         "predictive_maintenance": predictive_maintenance_pipeline,
         "prediction_publishing": prediction_publishing_pipeline,
         "competition_readiness": competition_readiness_pipeline,
         "model_hardening": model_hardening_pipeline,
+        "condition_forecasting": condition_forecasting_pipeline,
         "rca_rag": rca_rag_pipeline,
         "__default__": (
             feature_pipeline
             + predictive_maintenance_pipeline
             + model_hardening_pipeline
+            + condition_forecasting_pipeline
         ),
     }
