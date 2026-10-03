@@ -366,6 +366,23 @@ def parameter_trend(tag: str, parameter_no: int, date_from: date, date_to: date)
 
 
 # --------------------------------------------------- 5. Energy & emissions
+def environmental_kpis(
+    plants: tuple[str, ...], date_from: date, date_to: date,
+    nox_limit_ppm: float | None = None, sox_limit_ppm: float | None = None,
+) -> dict:
+    """Totals and averages over plant-hours; `within_limit` counts hours under every limit that is set."""
+    return db.run_query(
+        "SELECT COALESCE(SUM(co2_ton), 0) AS co2_ton, COALESCE(SUM(total_energy_kwh), 0) AS energy_kwh, "
+        "AVG(nox_ppm) AS nox_ppm, AVG(sox_ppm) AS sox_ppm, COUNT(*) AS hours, "
+        "COUNT(*) FILTER (WHERE (CAST(:nox AS double precision) IS NULL OR nox_ppm <= :nox) "
+        "AND (CAST(:sox AS double precision) IS NULL OR sox_ppm <= :sox)) AS within_limit "
+        "FROM fact_environmental_hourly WHERE plant = ANY(:plants) "
+        "AND timestamp >= :start AND timestamp < :end",
+        {"plants": list(plants), "start": _start(date_from), "end": _end_exclusive(date_to),
+         "nox": nox_limit_ppm, "sox": sox_limit_ppm},
+    ).iloc[0].to_dict()
+
+
 def environmental_trend(
     plants: tuple[str, ...], pollutant_column: str, date_from: date, date_to: date
 ) -> pd.DataFrame:

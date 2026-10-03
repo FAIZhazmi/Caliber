@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import yaml
 
 from dashboard import charts, queries
+from dashboard.cards import render_gradient_cards
 from dashboard.filters import DescriptiveFilters
 
 
@@ -81,10 +84,70 @@ LOSS_HELP = (
 )
 
 
+# Card colours follow the predictive tab: coral = loss or problem, purple = keep watching,
+# blue = context, green = healthy.
+KPI_STYLE = {
+    "availability_pct": ("green", "✓"),
+    "total_downtime": ("coral", "↓"),
+    "no_failures": ("coral", "!"),
+    "mtbf": ("blue", "⇄"),
+    "mttr": ("blue", "↺"),
+    "pm_compliance_pct": ("green", "%"),
+    "period_hours": ("blue", "◷"),
+    "production_loss_ton": ("coral", "▼"),
+    "estimated_loss_kusd": ("coral", "$"),
+    "monitoring_weeks": ("blue", "◇"),
+    "normal": ("green", "✓"),
+    "alarm": ("purple", "◎"),
+    "trip": ("coral", "!"),
+}
+
+
+def _kpi_cards(kpi: dict, equipment_count: int) -> dict[str, dict]:
+    """One gradient-card definition per KPI."""
+    readings = kpi["normal"] + kpi["alarm"] + kpi["trip"]
+
+    def share(count: int) -> str:
+        return f"{count / readings * 100:.0f}% of readings" if readings else "no readings"
+
+    content = {
+        "availability_pct": (
+            "Availability", _fmt(kpi["availability_pct"], "%"),
+            f"{kpi['period_hours'] - kpi['total_downtime']:,.0f} of {kpi['period_hours']:,} h running",
+        ),
+        "total_downtime": ("Total Downtime (h)", _fmt(kpi["total_downtime"]), f"across {kpi['no_failures']} incidents"),
+        "no_failures": (
+            "No. of Failures", kpi["no_failures"], f"{kpi['no_failures'] / equipment_count:.2f} per equipment"
+        ),
+        "mtbf": ("MTBF (h)", _fmt(kpi["mtbf"]), "mean time between failures"),
+        "mttr": ("MTTR (h)", _fmt(kpi["mttr"]), "mean time to repair"),
+        "pm_compliance_pct": ("PM Compliance", _fmt(kpi["pm_compliance_pct"], "%"), "scheduled PM completed"),
+        "period_hours": ("Period Hours", f"{kpi['period_hours']:,}", "equipment-hours observed"),
+        "production_loss_ton": ("Production Loss (ton, est.)", _fmt(kpi["production_loss_ton"]), "average rate x downtime"),
+        "estimated_loss_kusd": ("Estimated Loss (k USD, est.)", _fmt(kpi["estimated_loss_kusd"]), "loss x product price"),
+        "monitoring_weeks": ("Monitoring Period (weeks)", kpi["monitoring_weeks"], "weeks of condition readings"),
+        "normal": ("Normal Readings", kpi["normal"], share(kpi["normal"])),
+        "alarm": ("Alarm Readings", kpi["alarm"], share(kpi["alarm"])),
+        "trip": ("Trip Readings", kpi["trip"], share(kpi["trip"])),
+    }
+    return {
+        key: {
+            "label": label, "value": value, "detail": detail,
+            "palette": KPI_STYLE[key][0], "icon": KPI_STYLE[key][1],
+            "help": LOSS_HELP if key in LOSS_KEYS else None,
+        }
+        for key, (label, value, detail) in content.items()
+    }
+
+
 def render_kpi_row(
-    filters: DescriptiveFilters, keys: tuple[str, ...], title: str | None = None
+    filters: DescriptiveFilters, keys: tuple[str, ...], title: str | None = None,
+    inserted: tuple[int, list[dict]] | None = None,
 ) -> None:
-    """Render the subset of KPIs (`keys`) that belongs to the calling tab."""
+    """Render the subset of KPIs (`keys`) that belongs to the calling tab.
+
+    `inserted` is (row position, card definitions): an extra row of cards placed before that row.
+    """
     if title:
         st.subheader(title)
     st.caption(
@@ -96,28 +159,61 @@ def render_kpi_row(
         return
 
     kpi = queries.kpi_bundle(filters.equipment_tags, filters.date_from, filters.date_to)
-    labels = {
-        "availability_pct": ("Availability", _fmt(kpi["availability_pct"], "%")),
-        "total_downtime": ("Total Downtime (h)", _fmt(kpi["total_downtime"])),
-        "no_failures": ("No. of Failures", kpi["no_failures"]),
-        "mtbf": ("MTBF (h)", _fmt(kpi["mtbf"])),
-        "mttr": ("MTTR (h)", _fmt(kpi["mttr"])),
-        "pm_compliance_pct": ("PM Compliance", _fmt(kpi["pm_compliance_pct"], "%")),
-        "normal": ("Normal Readings", kpi["normal"]),
-        "alarm": ("Alarm Readings", kpi["alarm"]),
-        "trip": ("Trip Readings", kpi["trip"]),
-        "monitoring_weeks": ("Monitoring Period (weeks)", kpi["monitoring_weeks"]),
-        "period_hours": ("Period Hours", f"{kpi['period_hours']:,}"),
-        "production_loss_ton": ("Production Loss (ton, est.)", _fmt(kpi["production_loss_ton"])),
-        "estimated_loss_kusd": ("Estimated Loss (k USD, est.)", _fmt(kpi["estimated_loss_kusd"])),
-    }
-    for start in range(0, len(keys), 5):
-        row_keys = keys[start : start + 5]
-        # The keyed container lets executive_app.py reflow these columns into a responsive grid.
-        with st.container(key=f"kpi_row_{start}"):
-            for column, key in zip(st.columns(len(row_keys)), row_keys):
-                label, value = labels[key]
-                column.metric(label, value, help=LOSS_HELP if key in LOSS_KEYS else None)
+    cards = _kpi_cards(kpi, len(filters.equipment_tags))
+    rows = [[cards[key] for key in keys[start : start + 5]] for start in range(0, len(keys), 5)]
+    if inserted and inserted[1]:
+        rows.insert(inserted[0], inserted[1])
+    for row in rows:
+        render_gradient_cards(row, columns=len(row))
+
+
+def _emission_settings() -> dict:
+    return yaml.safe_load((Path(__file__).with_name("emission_limits.yml")).read_text(encoding="utf-8"))
+
+
+def _change(now: float, before: float, days: int) -> str:
+    if not before:
+        return f"no data in the previous {days} days"
+    return f"{(now - before) / before * 100:+.1f}% vs previous {days} days"
+
+
+def environmental_cards(filters: DescriptiveFilters) -> list[dict]:
+    """Energy & emissions cards for the filtered plants, compared with the period just before."""
+    if not filters.plants:
+        return []
+    cfg = _emission_settings()
+    factor = cfg["ppm_to_mg_nm3"]
+    limits = {k: v["value"] for k, v in cfg["limits"].items()}
+    nox_ppm = limits["nox_mg_nm3"] / factor["nox"] if limits["nox_mg_nm3"] else None
+    sox_ppm = limits["sox_mg_nm3"] / factor["sox"] if limits["sox_mg_nm3"] else None
+
+    days = (filters.date_to - filters.date_from).days + 1
+    previous_to = filters.date_from - timedelta(days=1)
+    now = queries.environmental_kpis(tuple(filters.plants), filters.date_from, filters.date_to, nox_ppm, sox_ppm)
+    before = queries.environmental_kpis(tuple(filters.plants), previous_to - timedelta(days=days - 1), previous_to)
+    if not now["hours"]:
+        return []
+
+    energy_gwh = now["energy_kwh"] / 1e6
+    cards = [
+        {"label": "CO2 Emitted (kt)", "value": _fmt(now["co2_ton"] / 1e3), "palette": "coral", "icon": "↑",
+         "detail": _change(now["co2_ton"], before["co2_ton"], days)},
+        {"label": "Energy Used (GWh)", "value": _fmt(energy_gwh), "palette": "purple", "icon": "⚡",
+         "detail": f"≈ {now['energy_kwh'] / 1000 / cfg['mwh_per_toe']:,.0f} TOE • "
+                   + _change(now["energy_kwh"], before["energy_kwh"], days)},
+        {"label": "Avg NOx (ppm)", "value": _fmt(now["nox_ppm"]), "palette": "blue", "icon": "◎",
+         "detail": f"≈ {now['nox_ppm'] * factor['nox']:,.0f} mg/Nm³ (as NO2)"},
+        {"label": "Avg SOx (ppm)", "value": _fmt(now["sox_ppm"]), "palette": "blue", "icon": "◇",
+         "detail": f"≈ {now['sox_ppm'] * factor['sox']:,.0f} mg/Nm³ (as SO2)"},
+    ]
+    if nox_ppm or sox_ppm:
+        shown = " / ".join(f"{k[:3].upper()} ≤ {v:g}" for k, v in limits.items() if v)
+        cards.append({
+            "label": "Hours Within Limit", "value": _fmt(now["within_limit"] / now["hours"] * 100, "%"),
+            "palette": "green", "icon": "✓", "detail": f"{shown} mg/Nm³",
+            "help": "Share of plant-hours under every limit set in dashboard/emission_limits.yml.",
+        })
+    return cards
 
 
 PAGER_SLOTS = 7  # number buttons and ellipses shown between Previous and Next
@@ -496,7 +592,11 @@ OVERVIEW_KPIS = (
 def render_overview_tab(filters: DescriptiveFilters, parameters_df: pd.DataFrame, plants_df: pd.DataFrame) -> None:
     """KPIs, then every chart (energy & emissions last), then all the detail tables."""
     render_data_freshness()
-    render_kpi_row(filters, OVERVIEW_KPIS, title="Key Performance Indicators")
+    # the energy & emissions cards sit between the second and third KPI rows: 5-5-4-3
+    render_kpi_row(
+        filters, OVERVIEW_KPIS, title="Key Performance Indicators",
+        inserted=(2, environmental_cards(filters)) if filters.equipment_tags else None,
+    )
 
     if filters.equipment_tags:
         for render in (

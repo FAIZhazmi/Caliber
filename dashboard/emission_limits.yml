@@ -1,0 +1,17 @@
+# Emission limits used by the "compliance" card on the Descriptive tab.
+# Leave value as null until you have the plant's real limits (Persetujuan Lingkungan / RKL-RPL);
+# the card is hidden while no limit is set, so generic numbers never show up as "violations".
+#
+# Reference only, NOT your permit: IFC EHS Guidelines for Large Volume Organic Chemicals (2007),
+# dry, 0 C, 101.3 kPa, 3% O2 -> NOx 300 mg/Nm3, SOx 100 mg/Nm3.
+limits:
+  nox_mg_nm3: {value: null, source: ""}
+  sox_mg_nm3: {value: null, source: ""}
+
+# ppm -> mg/Nm3 at 0 C, 1 atm (molar mass / 22.414): NOx as NO2, SOx as SO2.
+ppm_to_mg_nm3:
+  nox: 2.053
+  sox: 2.858
+
+# 1 TOE = 11.63 MWh
+mwh_per_toe: 11.63

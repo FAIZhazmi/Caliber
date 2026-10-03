@@ -15,14 +15,20 @@ PALETTES = {
 }
 
 
-def render_gradient_cards(cards: list[dict]) -> None:
-    """Render compact gradient cards using the dashboard's original typography."""
+def render_gradient_cards(cards: list[dict], columns: int = 4) -> None:
+    """Render compact gradient cards using the dashboard's original typography.
+
+    `columns` is the number of cards per row. The default of 4 folds with the window width; any other
+    value folds with the width of the space the row sits in (the descriptive tab has a sidebar), a row
+    wider than 4 going 3, 2, 1 columns and a narrower one 2, 1.
+    """
     st.markdown(
         """
         <style>
+          .cal-gradient-wrap { container-type: inline-size; }
           .cal-gradient-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(var(--cal-cols, 4), minmax(0, 1fr));
             gap: 14px;
             margin: .35rem 0 1.15rem 0;
           }
@@ -134,11 +140,20 @@ def render_gradient_cards(cards: list[dict]) -> None:
             font-weight: 650;
             color: #6b7fa6;
           }
+          @container (max-width: 880px) {
+            .cal-gradient-grid--wide { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          }
+          @container (max-width: 560px) {
+            .cal-gradient-grid--fluid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          }
+          @container (max-width: 340px) {
+            .cal-gradient-grid--fluid { grid-template-columns: 1fr; }
+          }
           @media (max-width: 1050px) {
-            .cal-gradient-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .cal-gradient-grid:not(.cal-gradient-grid--fluid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           }
           @media (max-width: 650px) {
-            .cal-gradient-grid { grid-template-columns: 1fr; }
+            .cal-gradient-grid:not(.cal-gradient-grid--fluid) { grid-template-columns: 1fr; }
           }
         </style>
         """,
@@ -164,7 +179,10 @@ def render_gradient_cards(cards: list[dict]) -> None:
             f"<div class='cal-gradient-detail'>{escape(str(card.get('detail', '')))}</div>"
             "</div>"
         )
+    wide = (" cal-gradient-grid--wide" if columns > 4 else "") + (" cal-gradient-grid--fluid" if columns != 4 else "")
     st.markdown(
-        "<div class='cal-gradient-grid'>" + "".join(rendered) + "</div>",
+        f"<div class='cal-gradient-wrap'><div class='cal-gradient-grid{wide}' style='--cal-cols:{int(columns)}'>"
+        + "".join(rendered)
+        + "</div></div>",
         unsafe_allow_html=True,
     )
