@@ -9,7 +9,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from dashboard.filters import GlobalFilters
+from dashboard.cards import render_gradient_cards
+from dashboard.filters import PredictiveFilters, render_predictive_inline_filters
 from dashboard.data import (
     DashboardDataError,
     aggregate_equipment_by_plant,
@@ -48,6 +49,184 @@ SIGNAL_LABELS = {
     "plant_rate": "Plant rate",
     "power_kw": "Power",
 }
+
+
+ATTENTION_CARD_STYLES = """
+<style>
+  .cal-priority-grid,
+  .cal-plant-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin: .35rem 0 1.25rem;
+  }
+  .cal-priority-card,
+  .cal-plant-card {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    box-sizing: border-box;
+    background: rgba(255,255,255,.94);
+    border: 1px solid rgba(226,232,240,.95);
+    border-radius: 20px;
+    box-shadow: 0 10px 28px rgba(51,65,85,.08);
+  }
+  .cal-priority-card {
+    padding: 1.2rem 1.2rem 1.15rem;
+    border-top: 4px solid var(--accent);
+  }
+  .cal-priority-card::after,
+  .cal-plant-card::after {
+    content: "";
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    right: -48px;
+    top: -48px;
+    border-radius: 50%;
+    background: var(--glow);
+    pointer-events: none;
+  }
+  .cal-card-topline,
+  .cal-plant-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+  .cal-priority-rank {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 .55rem;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--accent);
+    font-size: .78rem;
+    font-weight: 800;
+  }
+  .cal-plant-chip {
+    padding: .28rem .58rem;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: .75rem;
+    font-weight: 700;
+  }
+  .cal-equipment-name {
+    margin: .9rem 0 .45rem;
+    color: #102a5e;
+    font-size: 1.35rem;
+    line-height: 1.15;
+    font-weight: 800;
+  }
+  .cal-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .34rem .65rem;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--soft);
+    font-size: .76rem;
+    font-weight: 800;
+    letter-spacing: .02em;
+  }
+  .cal-status-dot {
+    width: .48rem;
+    height: .48rem;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .cal-decision-window {
+    margin-top: 1rem;
+    padding: .72rem .78rem;
+    border-radius: 13px;
+    background: #f8fafc;
+  }
+  .cal-card-label {
+    display: block;
+    margin-bottom: .18rem;
+    color: #94a3b8;
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .cal-card-value {
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 700;
+  }
+  .cal-next-action {
+    margin: .9rem 0 0;
+    color: #64748b;
+    font-size: .84rem;
+    line-height: 1.45;
+  }
+  .cal-plant-card {
+    padding: 1.15rem;
+    --glow: rgba(31,95,214,.08);
+  }
+  .cal-plant-name {
+    color: #102a5e;
+    font-size: 1.25rem;
+    font-weight: 800;
+  }
+  .cal-attention-total {
+    display: flex;
+    align-items: baseline;
+    gap: .45rem;
+    margin: .85rem 0 1rem;
+  }
+  .cal-attention-number {
+    color: var(--accent);
+    font-size: 2rem;
+    line-height: 1;
+    font-weight: 800;
+  }
+  .cal-attention-copy {
+    max-width: 9rem;
+    color: #64748b;
+    font-size: .78rem;
+    line-height: 1.25;
+  }
+  .cal-plant-counts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .45rem;
+  }
+  .cal-plant-count {
+    padding: .62rem .42rem;
+    text-align: center;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+  .cal-plant-count strong {
+    display: block;
+    color: #102a5e;
+    font-size: 1.02rem;
+  }
+  .cal-plant-count span {
+    color: #84919b;
+    font-size: .67rem;
+  }
+  .cal-top-equipment {
+    margin-top: .85rem;
+    padding-top: .75rem;
+    border-top: 1px solid #edf2f7;
+    color: #334155;
+    font-size: .84rem;
+  }
+  .cal-top-equipment strong { color: #102a5e; }
+  @media (max-width: 900px) {
+    .cal-priority-grid,
+    .cal-plant-grid { grid-template-columns: 1fr; }
+  }
+</style>
+"""
 
 
 _TRANSLATIONS = {
@@ -154,6 +333,102 @@ def build_executive_priority(risk: pd.DataFrame) -> pd.DataFrame:
     ]
 
 
+def _integer(value: object) -> int:
+    numeric = pd.to_numeric(value, errors="coerce")
+    return int(numeric) if pd.notna(numeric) else 0
+
+
+def _render_priority_cards(priority: pd.DataFrame) -> None:
+    """Render the executive action queue as visual cards instead of a table."""
+    label_to_status = {label: status for status, label in STATUS_LABELS.items()}
+    soft_colors = {
+        "ACTION_NOW": "rgba(185,28,28,.10)",
+        "PLAN_MAINTENANCE": "rgba(234,88,12,.10)",
+        "DATA_QUALITY_REVIEW": "rgba(124,58,237,.10)",
+        "MONITOR": "rgba(202,138,4,.11)",
+        "NORMAL": "rgba(21,128,61,.10)",
+    }
+    cards: list[str] = []
+    for _, item in priority.iterrows():
+        status_label = str(item["Status"])
+        status = label_to_status.get(status_label, "MONITOR")
+        accent = STATUS_COLORS[status]
+        cards.append(
+            "<article class='cal-priority-card' "
+            f"style='--accent:{accent};--soft:{soft_colors[status]};"
+            f"--glow:{soft_colors[status]}'>"
+            "<div class='cal-card-topline'>"
+            f"<span class='cal-priority-rank'>#{_integer(item['Priority'])}</span>"
+            f"<span class='cal-plant-chip'>{escape(str(item['Plant']))}</span>"
+            "</div>"
+            f"<div class='cal-equipment-name'>{escape(str(item['Equipment']))}</div>"
+            "<div class='cal-status-pill'>"
+            "<span class='cal-status-dot'></span>"
+            f"{escape(status_label.upper())}</div>"
+            "<div class='cal-decision-window'>"
+            "<span class='cal-card-label'>Decision window</span>"
+            f"<span class='cal-card-value'>{escape(str(item['Decision window']))}</span>"
+            "</div>"
+            "<p class='cal-next-action'>"
+            "<span class='cal-card-label'>Next action</span>"
+            f"{escape(str(item['Action']))}</p>"
+            "</article>"
+        )
+    st.markdown(
+        "<div class='cal-priority-grid'>" + "".join(cards) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_plant_attention_cards(attention_plants: pd.DataFrame) -> None:
+    """Render plant-level attention counts as compact summary cards."""
+    cards: list[str] = []
+    for _, item in attention_plants.iterrows():
+        action_now = _integer(item.get("action_now_count", 0))
+        plan = _integer(item.get("plan_maintenance_count", 0))
+        monitor = _integer(item.get("monitor_count", 0))
+        review = _integer(item.get("data_quality_review_count", 0))
+        needs_action = action_now + plan
+        attention_total = needs_action + monitor + review
+        if action_now:
+            accent, glow = STATUS_COLORS["ACTION_NOW"], "rgba(185,28,28,.09)"
+        elif plan:
+            accent, glow = STATUS_COLORS["PLAN_MAINTENANCE"], "rgba(234,88,12,.09)"
+        elif review:
+            accent, glow = STATUS_COLORS["DATA_QUALITY_REVIEW"], "rgba(124,58,237,.09)"
+        else:
+            accent, glow = STATUS_COLORS["MONITOR"], "rgba(202,138,4,.10)"
+        top_equipment = item.get("highest_risk_equipment", "—")
+        if pd.isna(top_equipment):
+            top_equipment = "—"
+        cards.append(
+            "<article class='cal-plant-card' "
+            f"style='--accent:{accent};--glow:{glow}'>"
+            "<div class='cal-plant-heading'>"
+            f"<span class='cal-plant-name'>{escape(str(item['plant']))}</span>"
+            "<span class='cal-plant-chip'>PLANT</span>"
+            "</div>"
+            "<div class='cal-attention-total'>"
+            f"<span class='cal-attention-number'>{attention_total}</span>"
+            "<span class='cal-attention-copy'>equipment need attention</span>"
+            "</div>"
+            "<div class='cal-plant-counts'>"
+            f"<div class='cal-plant-count'><strong>{needs_action}</strong><span>Action</span></div>"
+            f"<div class='cal-plant-count'><strong>{monitor}</strong><span>Monitor</span></div>"
+            f"<div class='cal-plant-count'><strong>{review}</strong><span>Data review</span></div>"
+            "</div>"
+            "<div class='cal-top-equipment'>"
+            "<span class='cal-card-label'>Top priority</span>"
+            f"<strong>{escape(str(top_equipment))}</strong>"
+            "</div>"
+            "</article>"
+        )
+    st.markdown(
+        "<div class='cal-plant-grid'>" + "".join(cards) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _inspection_steps(value: object) -> list[str]:
     return [
         line.strip()[2:].strip()
@@ -241,9 +516,9 @@ def _render_priority_detail(
 
 
 def render_predictive_maintenance_executive(
-    reporting_directory: Path, filters: GlobalFilters | None = None
-) -> None:
-    """Render a compact component suitable for a combined executive dashboard."""
+    reporting_directory: Path,
+) -> PredictiveFilters | None:
+    """Render the fleet overview followed by one equipment-level detail view."""
     try:
         equipment_risk, _, summary = _load_executive_data(str(reporting_directory))
         _, inspection_guidance = _load_executive_guidance(str(reporting_directory))
@@ -262,19 +537,16 @@ def render_predictive_maintenance_executive(
     )
     _render_source_notice(summary)
 
-    scoped = (
-        equipment_risk
-        if filters is None
-        else equipment_risk.loc[equipment_risk["equipment_tag"].isin(filters.equipment_tags)]
-    )
-    if filters is not None:
-        st.caption(
-            f"Global filter: {len(scoped)} equipment · "
-            "the risk snapshot is point-in-time, so the date range does not change this view."
-        )
+    scoped = equipment_risk
     if scoped.empty:
-        st.info("No equipment matches the current filters.")
+        st.info("No equipment is available in the current risk snapshot.")
         return
+
+    st.markdown("## Fleet monitoring")
+    st.caption(
+        f"Ringkasan ini selalu membaca seluruh {len(scoped)} equipment dan tidak "
+        "dipengaruhi filter equipment pada bagian detail."
+    )
 
     action_count = int(
         scoped["risk_level"].isin(["ACTION_NOW", "PLAN_MAINTENANCE"]).sum()
@@ -282,11 +554,39 @@ def render_predictive_maintenance_executive(
     monitor_count = int(scoped["risk_level"].eq("MONITOR").sum())
     review_count = int(scoped["risk_level"].eq("DATA_QUALITY_REVIEW").sum())
     normal_count = int(scoped["risk_level"].eq("NORMAL").sum())
-    kpis = st.columns(4)
-    kpis[0].metric("Needs action", action_count)
-    kpis[1].metric("Needs monitoring", monitor_count)
-    kpis[2].metric("Data quality review", review_count)
-    kpis[3].metric("Normal", normal_count)
+    total_equipment = max(len(scoped), 1)
+    render_gradient_cards(
+        [
+            {
+                "label": "Needs action",
+                "value": action_count,
+                "detail": f"{action_count / total_equipment * 100:.0f}% of fleet",
+                "palette": "coral",
+                "icon": "!",
+            },
+            {
+                "label": "Needs monitoring",
+                "value": monitor_count,
+                "detail": f"{monitor_count / total_equipment * 100:.0f}% of fleet",
+                "palette": "purple",
+                "icon": "◎",
+            },
+            {
+                "label": "Data quality review",
+                "value": review_count,
+                "detail": f"{review_count / total_equipment * 100:.0f}% of fleet",
+                "palette": "blue",
+                "icon": "◇",
+            },
+            {
+                "label": "Normal",
+                "value": normal_count,
+                "detail": f"{normal_count / total_equipment * 100:.0f}% of fleet",
+                "palette": "green",
+                "icon": "✓",
+            },
+        ]
+    )
 
     model_30d = summary.get("models", {}).get("30d", {})
     if model_30d.get("release_status") == "EXPERIMENTAL":
@@ -295,24 +595,13 @@ def render_predictive_maintenance_executive(
             "inspection prioritization, not automatic shutdown decisions."
         )
 
+    st.markdown(ATTENTION_CARD_STYLES, unsafe_allow_html=True)
     st.markdown("## Decision priorities")
     priority = build_executive_priority(scoped)
     if priority.empty:
         st.success("No equipment requires additional attention.")
     else:
-        st.dataframe(
-            priority,
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "Priority": st.column_config.NumberColumn(format="%d", width="small"),
-                "Equipment": st.column_config.TextColumn(width="small"),
-                "Plant": st.column_config.TextColumn(width="small"),
-                "Status": st.column_config.TextColumn(width="medium"),
-                "Decision window": st.column_config.TextColumn(width="medium"),
-                "Action": st.column_config.TextColumn(width="large"),
-            },
-        )
+        _render_priority_cards(priority)
 
     plant_scope = aggregate_equipment_by_plant(scoped)
     attention_plants = plant_scope.loc[
@@ -327,38 +616,22 @@ def render_predictive_maintenance_executive(
     ]
     if not attention_plants.empty:
         st.markdown("## Plants needing attention")
-        plant_display = attention_plants.assign(
-            **{
-                "Needs action": attention_plants["action_now_count"]
-                + attention_plants["plan_maintenance_count"],
-                "Monitor": attention_plants["monitor_count"],
-                "Data review": attention_plants["data_quality_review_count"],
-            }
-        ).rename(
-            columns={
-                "plant": "Plant",
-                "highest_risk_equipment": "Top priority",
-            }
-        )
-        st.dataframe(
-            plant_display[
-                ["Plant", "Needs action", "Monitor", "Data review", "Top priority"]
-            ],
-            hide_index=True,
-            width="stretch",
-        )
+        _render_plant_attention_cards(attention_plants)
 
-    non_normal = scoped.loc[scoped["risk_level"].ne("NORMAL")]
-    if not non_normal.empty:
-        st.markdown("## Decision details")
-        options = non_normal["equipment_tag"].astype(str).tolist()
-        selected_tag = st.selectbox("Select equipment", options)
-        selected = non_normal.loc[non_normal["equipment_tag"].eq(selected_tag)].iloc[0]
-        with st.container(border=True):
-            _render_priority_detail(selected, inspection_guidance)
+    st.divider()
+    predictive_filters = render_predictive_inline_filters(
+        scoped["equipment_tag"].dropna().astype(str).tolist()
+    )
+    st.markdown("## Decision details")
+    selected = scoped.loc[
+        scoped["equipment_tag"].eq(predictive_filters.equipment_tag)
+    ].iloc[0]
+    with st.container(border=True):
+        _render_priority_detail(selected, inspection_guidance)
 
     st.caption(
         "CALIBER is decision support. Maintenance decisions still follow "
         "applicable operating procedures and authorization."
     )
+    return predictive_filters
 

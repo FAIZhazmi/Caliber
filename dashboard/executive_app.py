@@ -18,6 +18,7 @@ from dashboard import queries  # noqa: E402
 from dashboard.descriptive import render_overview_tab  # noqa: E402
 from dashboard.executive_view import render_predictive_maintenance_executive  # noqa: E402
 from dashboard.filters import render_sidebar_filters  # noqa: E402
+from dashboard.regression_viz import render_predictive_evidence  # noqa: E402
 
 
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
@@ -257,9 +258,6 @@ def _load_filter_sources():
         return equipment_dim, plants_dim, None, today - timedelta(days=365), today, exc
 
 
-(equipment_dim, plants_dim, parameters_dim, min_date, max_date, db_error) = _load_filter_sources()
-global_filters = render_sidebar_filters(equipment_dim, plants_dim, min_date, max_date)
-
 st.markdown(
     """
     <div class="app-banner">
@@ -284,20 +282,57 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-executive_tab, overview_tab = st.tabs(["Executive Summary", "Overview Data"])
+analytics_mode = st.segmented_control(
+    "Analytics workspace",
+    ["Predictive Analytics", "Descriptive Analytics"],
+    default="Predictive Analytics",
+    key="analytics_workspace",
+    label_visibility="collapsed",
+    width="stretch",
+)
 
-with executive_tab:
-    render_predictive_maintenance_executive(REPORTING_DIRECTORY, global_filters)
-
-with overview_tab:
+if analytics_mode == "Predictive Analytics":
+    st.markdown(
+        """
+        <style>
+          section[data-testid="stSidebar"] { display: none !important; }
+          [data-testid="stSidebarCollapseButton"],
+          [data-testid="stSidebarCollapsedControl"],
+          [data-testid="collapsedControl"] { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    predictive_filters = render_predictive_maintenance_executive(REPORTING_DIRECTORY)
+    if predictive_filters is not None:
+        render_predictive_evidence(
+            PROJECT_ROOT,
+            equipment=predictive_filters.equipment_tag,
+            horizon_days=predictive_filters.horizon_days,
+        )
+else:
+    (equipment_dim, plants_dim, parameters_dim, min_date, max_date, db_error) = (
+        _load_filter_sources()
+    )
+    descriptive_filters = render_sidebar_filters(
+        equipment_dim,
+        plants_dim,
+        min_date,
+        max_date,
+    )
+    st.markdown(
+        "<div class='executive-header'>"
+        "<div class='executive-kicker'>DESCRIPTIVE ANALYTICS</div>"
+        "<div class='executive-title'>Historical Operations Overview</div>"
+        "<div class='executive-subtitle'>Production, incidents, equipment performance, "
+        "downtime, energy, and emissions.</div></div>",
+        unsafe_allow_html=True,
+    )
     if db_error is not None:
         st.error(f"Descriptive analytics cannot connect to Supabase: {db_error}")
-        st.info(
-            "Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler. "
-            "The Executive Summary remains available without this database connection."
-        )
+        st.info("Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler.")
     else:
-        render_overview_tab(global_filters, parameters_dim, plants_dim)
+        render_overview_tab(descriptive_filters, parameters_dim, plants_dim)
 
 # Flag the page once the banner has scrolled out of view so the toolbar can switch colours (see CSS above).
 # Scroll events do not bubble, so listen in the capture phase; the guard keeps reruns from stacking listeners.
