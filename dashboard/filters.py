@@ -35,6 +35,12 @@ class GlobalFilters:
 DescriptiveFilters = GlobalFilters
 
 
+@dataclass(frozen=True)
+class PredictiveFilters:
+    equipment_tag: str
+    horizon_days: int
+
+
 ASSETS_DIRECTORY = Path(__file__).resolve().parent / "assets"
 LOGO_NAMES = ("chandra_asri_logo", "logo_chandra_asri", "logo")
 LOGO_EXTENSIONS = (".png", ".svg", ".jpg", ".jpeg", ".webp")
@@ -163,4 +169,59 @@ def render_sidebar_filters(
         date_from=date_from,
         date_to=date_to,
         equipment=final,
+    )
+
+
+def render_predictive_inline_filters(
+    equipment_tags: list[str] | tuple[str, ...],
+) -> PredictiveFilters:
+    """Render equipment-level predictive controls inside the main dashboard."""
+    equipment_options = sorted({str(tag) for tag in equipment_tags})
+    if not equipment_options:
+        raise ValueError("Predictive filters require at least one equipment tag")
+    default_tag = "PM-4405B" if "PM-4405B" in equipment_options else equipment_options[0]
+
+    with st.container(border=True):
+        st.markdown("### Equipment monitoring")
+        st.caption(
+            "Pilih equipment untuk membuka decision details dan prediction evidence. "
+            "Ringkasan di atas tetap membaca seluruh equipment."
+        )
+        equipment_column, horizon_column, reset_column = st.columns([2.2, 1.2, 0.8])
+        with equipment_column:
+            equipment_tag = st.selectbox(
+                "Equipment",
+                equipment_options,
+                index=equipment_options.index(default_tag),
+                key="predictive_equipment_filter",
+                width="stretch",
+            )
+        with horizon_column:
+            horizon_days = st.selectbox(
+                "Horizon forecast",
+                [7, 14, 30],
+                index=2,
+                format_func=lambda value: f"{value} hari",
+                key="predictive_horizon_filter",
+                width="stretch",
+            )
+        with reset_column:
+            st.markdown("<div style='height:1.85rem'></div>", unsafe_allow_html=True)
+            if st.button("Reset filter", key="predictive_reset_filter", width="stretch"):
+                for key in (
+                    "predictive_equipment_filter",
+                    # Remove state left by dashboard versions that exposed this filter.
+                    "predictive_parameter_filter",
+                    "predictive_horizon_filter",
+                ):
+                    st.session_state.pop(key, None)
+                st.rerun()
+        st.caption(
+            "Semua status tersedia, termasuk equipment NORMAL. Parameter utama "
+            "dipilih otomatis dari deviasi sensor terbesar."
+        )
+
+    return PredictiveFilters(
+        equipment_tag=str(equipment_tag),
+        horizon_days=int(horizon_days),
     )

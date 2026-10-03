@@ -24,7 +24,7 @@ from dashboard.descriptive import (  # noqa: E402
 )
 from dashboard.executive_view import render_predictive_maintenance_executive  # noqa: E402
 from dashboard.filters import render_sidebar_filters  # noqa: E402
-from dashboard.regression_viz import render_regression_analysis  # noqa: E402
+from dashboard.regression_viz import render_predictive_evidence  # noqa: E402
 
 
 REPORTING_DIRECTORY = PROJECT_ROOT / "data" / "08_reporting"
@@ -245,9 +245,6 @@ def _load_filter_sources():
         return equipment_dim, plants_dim, None, today - timedelta(days=365), today, exc
 
 
-(equipment_dim, plants_dim, parameters_dim, min_date, max_date, db_error) = _load_filter_sources()
-global_filters = render_sidebar_filters(equipment_dim, plants_dim, min_date, max_date)
-
 st.markdown(
     """
     <div class="app-banner">
@@ -272,51 +269,79 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-(
-    executive_tab,
-    production_tab,
-    incident_tab,
-    equipment_tab,
-    downtime_tab,
-    energy_tab,
-    regression_tab,
-) = st.tabs(
-    [
-        "Executive Summary",
-        "Production Data",
-        "Incident Database",
-        "Equipment Performance",
-        "Downtime Data",
-        "Energy & Emissions",
-        "📈 Regression Analysis",
-    ]
+analytics_mode = st.segmented_control(
+    "Analytics workspace",
+    ["Predictive Analytics", "Descriptive Analytics"],
+    default="Predictive Analytics",
+    key="analytics_workspace",
+    label_visibility="collapsed",
+    width="stretch",
 )
 
-with executive_tab:
-    render_predictive_maintenance_executive(REPORTING_DIRECTORY, global_filters)
-
-for tab, render in (
-    (production_tab, lambda: render_production_tab(global_filters)),
-    (incident_tab, lambda: render_incident_tab(global_filters)),
-    (
-        equipment_tab,
-        lambda: render_equipment_performance_tab(global_filters, parameters_dim),
-    ),
-    (downtime_tab, lambda: render_downtime_tab(global_filters)),
-    (energy_tab, lambda: render_energy_emissions_tab(global_filters, plants_dim)),
-):
-    with tab:
-        if db_error is not None:
-            st.error(f"Descriptive analytics cannot connect to Supabase: {db_error}")
-            st.info(
-                "Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler. "
-                "The Executive Summary remains available without this database connection."
-            )
-        else:
-            render()
-
-with regression_tab:
-    render_regression_analysis(PROJECT_ROOT)
+if analytics_mode == "Predictive Analytics":
+    st.markdown(
+        """
+        <style>
+          section[data-testid="stSidebar"] { display: none !important; }
+          [data-testid="stSidebarCollapseButton"],
+          [data-testid="stSidebarCollapsedControl"],
+          [data-testid="collapsedControl"] { display: none !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    predictive_filters = render_predictive_maintenance_executive(REPORTING_DIRECTORY)
+    if predictive_filters is not None:
+        render_predictive_evidence(
+            PROJECT_ROOT,
+            equipment=predictive_filters.equipment_tag,
+            horizon_days=predictive_filters.horizon_days,
+        )
+else:
+    (equipment_dim, plants_dim, parameters_dim, min_date, max_date, db_error) = (
+        _load_filter_sources()
+    )
+    descriptive_filters = render_sidebar_filters(
+        equipment_dim,
+        plants_dim,
+        min_date,
+        max_date,
+    )
+    st.markdown(
+        "<div class='executive-header'>"
+        "<div class='executive-kicker'>DESCRIPTIVE ANALYTICS</div>"
+        "<div class='executive-title'>Historical Operations Overview</div>"
+        "<div class='executive-subtitle'>Production, incidents, equipment performance, "
+        "downtime, energy, and emissions.</div></div>",
+        unsafe_allow_html=True,
+    )
+    production_tab, incident_tab, equipment_tab, downtime_tab, energy_tab = st.tabs(
+        [
+            "Production Data",
+            "Incident Database",
+            "Equipment Performance",
+            "Downtime Data",
+            "Energy & Emissions",
+        ]
+    )
+    for tab, render in (
+        (production_tab, lambda: render_production_tab(descriptive_filters)),
+        (incident_tab, lambda: render_incident_tab(descriptive_filters)),
+        (
+            equipment_tab,
+            lambda: render_equipment_performance_tab(descriptive_filters, parameters_dim),
+        ),
+        (downtime_tab, lambda: render_downtime_tab(descriptive_filters)),
+        (energy_tab, lambda: render_energy_emissions_tab(descriptive_filters, plants_dim)),
+    ):
+        with tab:
+            if db_error is not None:
+                st.error(f"Descriptive analytics cannot connect to Supabase: {db_error}")
+                st.info(
+                    "Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler."
+                )
+            else:
+                render()
 
 # Flag the page once the banner has scrolled out of view so the toolbar can switch colours (see CSS above).
 # Scroll events do not bubble, so listen in the capture phase; the guard keeps reruns from stacking listeners.
