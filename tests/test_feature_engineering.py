@@ -13,6 +13,7 @@ from caliber_ml.pipelines.feature_engineering.nodes import (
     _assemble_supabase_source_frames,
     _fetch_supabase_table,
     _normalise_supabase_url,
+    _read_supabase_page,
     build_condition_features,
     build_failure_labels,
     build_incident_registry_and_corpus,
@@ -201,6 +202,38 @@ class FeatureEngineeringTests(unittest.TestCase):
         self.assertEqual(result["equipment_tag"].tolist(), ["A", "B", "C"])
         self.assertEqual([call[1] for call in calls], ["0-1", "2-3"])
         self.assertIn("order=equipment_tag.asc", calls[0][0])
+
+    def test_supabase_page_retries_read_timeout(self):
+        calls = []
+
+        class FakeResponse:
+            headers = {"Content-Range": "0-0/1"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'[{"equipment_tag": "EQ-1"}]'
+
+        def fake_urlopen(request, timeout):
+            calls.append(timeout)
+            if len(calls) == 1:
+                raise TimeoutError("temporary read timeout")
+            return FakeResponse()
+
+        with patch(
+            "caliber_ml.pipelines.feature_engineering.nodes.urlopen", fake_urlopen
+        ), patch("caliber_ml.pipelines.feature_engineering.nodes.time.sleep"):
+            rows, content_range = _read_supabase_page(
+                object(), timeout=5, max_retries=1
+            )
+
+        self.assertEqual(rows, [{"equipment_tag": "EQ-1"}])
+        self.assertEqual(content_range, "0-0/1")
+        self.assertEqual(calls, [5, 5])
 
     def test_supabase_source_requires_key_before_network_access(self):
         parameters = {

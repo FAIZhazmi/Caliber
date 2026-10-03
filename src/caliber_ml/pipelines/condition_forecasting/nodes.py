@@ -73,11 +73,14 @@ def forecast_sensor_core(
     forecasts: list[float] = []
     lower_limit = float(series.quantile(0.005))
     upper_limit = float(series.quantile(0.995))
+    nonnegative = float(series.min()) >= 0
     margin = max((upper_limit - lower_limit) * 0.25, residual_sigma * 2)
     for future_date in future_dates:
         row = np.asarray([_forecast_row(history, future_date, lags)])
         estimate = float(model.predict(scaler.transform(row))[0])
         estimate = float(np.clip(estimate, lower_limit - margin, upper_limit + margin))
+        if nonnegative:
+            estimate = max(estimate, 0.0)
         history.append(estimate)
         forecasts.append(estimate)
 
@@ -92,7 +95,7 @@ def forecast_sensor_core(
             "upper": np.asarray(forecasts) + uncertainty,
         }
     )
-    if float(series.min()) >= 0:
+    if nonnegative:
         result["lower"] = result["lower"].clip(lower=0)
     return result, residual_sigma
 

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-09-30T01:57:45.474233+00:00",
-  "reference_timestamp": "2026-09-30T08:57:44.881004",
+  "generated_at": "2026-10-03T20:56:03.665682+00:00",
+  "reference_timestamp": "2026-10-04T03:56:02.445636",
   "source_timezone": "Asia/Jakarta",
   "dataset_mode": "synthetic_demo",
   "future_observations_expected": true,
@@ -10,15 +10,15 @@
   "equipment_count": 20,
   "observation_start": "2023-10-02T00:00:00",
   "observation_end": "2026-10-04T23:00:00",
-  "event_count": 43,
+  "event_count": 44,
   "rca_verified_event_count": 5,
-  "non_rca_verified_event_count": 38,
+  "non_rca_verified_event_count": 39,
   "source_event_counts": {
-    "supabase_incident": 23,
+    "supabase_incident": 24,
     "canonical_supabase_incident": 15,
     "rca_document": 5
   },
-  "future_observation_rows": 2220,
+  "future_observation_rows": 400,
   "future_event_count": 0,
   "duplicate_key_rows": 0,
   "missing_key_rows": 0,
@@ -26,20 +26,20 @@
   "label_domain_errors": 0,
   "label_monotonicity_errors": 0,
   "days_to_failure_mismatch_rows": 0,
-  "recovery_window_rows": 3116,
+  "recovery_window_rows": 3189,
   "censored_rows": {
-    "7d": 6476,
-    "30d": 17516
+    "7d": 6549,
+    "30d": 17124
   },
   "positive_rows": {
-    "7d": 7224,
-    "30d": 30960
+    "7d": 7392,
+    "30d": 31680
   },
   "failures": [],
   "warnings": [
-    "Only 5 of 43 events are RCA-verified"
+    "Only 5 of 44 events are RCA-verified"
   ],
   "information": [
-    "2220 observations after the audit reference time are accepted as an explicitly declared synthetic demo snapshot"
+    "400 observations after the audit reference time are accepted as an explicitly declared synthetic demo snapshot"
   ]
 }

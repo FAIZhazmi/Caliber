@@ -8,8 +8,8 @@
   "history_days": 180,
   "forecast_row_count": 4200,
   "risk_row_count": 4200,
-  "validation_auc_7d": 0.9156764247358393,
-  "models_beating_naive": 103,
+  "validation_auc_7d": 0.8167096774193549,
+  "models_beating_naive": 98,
   "model_count": 140,
   "data_classification": "synthetic_demo",
   "usage_note": "Experimental decision-support evidence; not a failure-time guarantee."

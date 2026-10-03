@@ -51,6 +51,21 @@ class ConditionForecastingTests(unittest.TestCase):
         np.testing.assert_allclose(first["forecast"], second["forecast"])
         self.assertEqual(first_sigma, second_sigma)
 
+    def test_nonnegative_sensor_forecast_has_valid_interval_scale(self):
+        dates = pd.date_range("2026-01-01", periods=120, freq="D")
+        series = pd.Series(np.linspace(1.0, 0.0, len(dates)), index=dates)
+
+        forecast, _ = nodes.forecast_sensor_core(
+            series,
+            30,
+            lags=(1, 2, 3, 7, 14, 28),
+            ridge_alpha=5.0,
+            interval_z=1.64,
+        )
+
+        self.assertTrue((forecast[["forecast", "lower", "upper"]] >= 0).all().all())
+        self.assertTrue((forecast["upper"] >= forecast["lower"]).all())
+
     def test_artifact_contract_covers_all_equipment_and_sensors(self):
         dates = pd.date_range("2026-01-01", periods=100, freq="D")
         feature_rows = []

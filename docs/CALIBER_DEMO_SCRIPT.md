@@ -6,7 +6,7 @@ Maintenance teams receive many sensor signals but need a short, traceable inspec
 
 ## 0:30–1:15 — Data honesty
 
-This is a synthetic competition snapshot with 43 labeled events; only 5 have verified RCA.
+This is a synthetic competition snapshot with 44 labeled events; only 5 have verified RCA.
 
 ## 1:15–2:15 — ML evaluation
 
@@ -14,8 +14,10 @@ Show chronological splits, purge gaps, rolling backtests, persistence, event rec
 
 ## 2:15–3:15 — Dashboard
 
-- PM-4405B: PLAN_MAINTENANCE — Review dalam 24 jam dan jadwalkan pemeliharaan
+- PM-4405B: ACTION_NOW — Inspeksi segera dan siapkan tindakan pemeliharaan
+- TX-6085B: PLAN_MAINTENANCE — Review dalam 24 jam dan jadwalkan pemeliharaan
 - BL-5702: PLAN_MAINTENANCE — Review dalam 24 jam dan jadwalkan pemeliharaan
+- TK-6178A: DATA_QUALITY_REVIEW — Verifikasi integritas sensor dan hitung ulang prediksi sebelum tindakan
 - HE-3301: MONITOR — Pantau tren pada shift berikutnya dan verifikasi kondisi sensor
 
 The 7-day result prioritises inspection. The 30-day result is an experimental early warning, not an automatic work order.
