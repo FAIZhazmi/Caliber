@@ -299,19 +299,43 @@ API when configured or displays a dated local snapshot. Opening the dashboard do
 generate drafts or create tasks; the **Create Progress Tracking** button in Executive Summary
 opens an instruction dialog and requires explicit confirmation.
 
+### Floating CORE Insight chatbot
+
+The unified dashboard includes a fixed **ASK CORE AI** launcher in the bottom-right corner.
+The chat popup provides **Hapus riwayat chat** to clear messages from the current Streamlit
+session without changing dashboard data or external systems.
+Its supported skills cover executive summary, risk prioritization, equipment risk explanation,
+7/14/30-day prediction evidence, production, incidents, downtime, energy/emissions, draft
+RCA/CAPA, and ClickUp progress tracking. Questions outside those skills receive selectable
+in-scope suggestions instead of a general-purpose answer.
+
+The router and evidence collectors run before generation. Only the resulting dashboard evidence
+is sent to local Ollama `qwen3.5:4b` when `OLLAMA_USE_CLOUD=false`; the configured
+`OLLAMA_FALLBACK_MODEL` is used through Ollama Cloud when the local service is unavailable and
+`OLLAMA_API_KEY` exists. Set `OLLAMA_USE_CLOUD=true` to use Ollama Cloud directly. SHAP is
+presented as model attribution rather than causal diagnosis, experimental forecasts retain their
+uncertainty notice, and every RCA/CAPA result remains a draft for maintenance SME review. Merely
+opening the chat does not call Ollama, ClickUp, or create a task.
+
 ### Scope Erika: RCA demo and ClickUp
 
 The `Erika: RCA & ClickUp` tab lets the team manually select equipment for a **demo analysis**;
-manual selection is not a Faiz alert. Case evidence comes from the available sensor snapshot
-and Faiz reporting outputs; the dashboard does not fetch fresh Supabase data. The five PPTX
-decks are examples of RCA structure/method only and are excluded from incident retrieval,
-Qwen case evidence, and task incident references. The dashboard renders a readable Indonesian
-report rather than raw JSON. Only closed, SME-verified ClickUp records enter incident search.
-The 0.75 threshold remains configured for that verified corpus and is not applied to the
-example decks. Drafts use local Ollama at `127.0.0.1` with `qwen3.5:4b`. If the
-local service or model is unavailable, the backend falls back to Ollama Cloud model
-`gemma4:31b` using the server-side `OLLAMA_API_KEY`; credentials are never sent to the browser.
-When fallback is used, the case prompt and its supplied evidence are processed by Ollama Cloud.
+manual selection is not a Faiz alert. Case evidence comes from the available sensor snapshot,
+Faiz reporting outputs, and the five validated historical RCA/CAPA PPTX decks; the dashboard
+does not fetch fresh Supabase data. For an exact equipment match, retrieval supplies a balanced
+set of closure-summary, root-cause, and CAPA slides. Closed, SME-verified ClickUp records are
+also eligible evidence. Historical findings support the draft but are never treated as proof
+that the same cause is active in the current snapshot. The dashboard renders a concise narrative
+report rather than raw JSON. Corrective drafts separate current indicators, the suspected failure
+mode, and the unconfirmed causal mechanism. They require three explicit action stages—containment
+or immediate verification, corrective action after confirmation, and recurrence prevention—and
+give each stage a reasonable target-time window and an outcome KPI without requiring completion
+evidence or inventing engineering limits.
+With `OLLAMA_USE_CLOUD=false`, drafts use local Ollama at `127.0.0.1`
+with `qwen3.5:4b` and fall back to Ollama Cloud model `gemma4:31b` if the local service
+is unavailable. With `OLLAMA_USE_CLOUD=true`, requests go directly to Ollama Cloud.
+Both cloud paths require the server-side `OLLAMA_API_KEY`; credentials are never sent to the
+browser. When cloud is used, the case prompt and supplied evidence are processed externally.
 
 SHAP `TreeExplainer` is validated against both saved Faiz estimators. To calculate case-specific
 feature contributions, provide `data/04_feature/equipment_latest_features.parquet` with the
@@ -332,13 +356,22 @@ creation, and a task with a different stored draft is not silently overwritten o
 
 The active destination is the single **Team Space / RCA & Action Management / List** workflow
 (`1100330000081187`) for both RCA review and proposed CAPA tasks. Every task starts in
-`to review`; each CAPA is created without a PIC or deadline. If approved, the SME assigns its
-PIC and timeline and moves it to `to do`; the PIC then advances it to `in progres` and `done`.
+`to review`. Corrective tasks always leave PIC unassigned for manual assignment, even if optional
+assignee settings exist; their descriptions include reasonable target-time windows and KPIs.
+After approval, the SME assigns the PIC and moves the task to `to do`; the PIC then advances it
+to `in progres` and `done`.
 The integration rejects any workspace, space, folder, or List outside this fixed workflow.
 See [Team Space setup](docs/clickup_team_space.md).
 The **Tracking ClickUp** tab shows both Lists as a status board with task cards and links.
 When `CLICKUP_API_TOKEN` is set locally, it reads both Lists through the authenticated API
 and refreshes on demand; API results are cached for 60 seconds to avoid repeated calls.
+Statuses listed in `CLICKUP_SOLVED_STATUSES` (comma-separated and case-insensitive; default
+`done,complete,closed`) are shown as the canonical dashboard status `Solved`. The original
+ClickUp status remains in the snapshot for traceability. If a task is reopened in ClickUp,
+the next board refresh removes the `Solved` marker automatically.
+The active executive dashboard also shows this workflow status in the selected equipment's
+Decision details and provides a **Refresh ClickUp status** action. Predictive risk remains a
+separate model signal and is not overwritten by maintenance workflow completion.
 Without a token, the tab shows an explicitly dated, ignored local snapshot that was fetched
 through the connected ClickUp session. The snapshot is not presented as live data. Private
 task contents are not published through an iframe.

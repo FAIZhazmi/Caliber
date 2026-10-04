@@ -61,8 +61,9 @@ Ubah status khusus pada List ini agar tidak mengubah List lain di Space.
 ## Informasi task
 
 - Judul: equipment dan ringkasan masalah.
-- PIC, prioritas, dan tenggat memakai properti bawaan task. PIC belum ditetapkan
-  sampai anggota Maintenance/SME yang berwenang sudah diketahui.
+- PIC dan prioritas memakai properti bawaan task. PIC corrective selalu dibiarkan
+  kosong sampai anggota Maintenance/SME yang berwenang menetapkannya manual.
+  Target waktu per tindakan dicantumkan di deskripsi sebagai usulan perencanaan.
 - Isi task menyimpan snapshot, hasil model, bukti SHAP yang benar-benar tersedia,
   probable RCA, referensi, keterbatasan, dan rekomendasi pemeriksaan.
 - Checklist memuat rekomendasi untuk ditinjau SME, bukan perintah operasional otomatis.
@@ -100,16 +101,26 @@ nyatakan penyebab belum dapat dipastikan.]
 ### Referensi dan keterbatasan
 
 [Rujukan insiden terverifikasi beserta lokasi/tautan, hanya jika tersedia.
-Similarity cosine berada pada skala 0–1 dan ditampilkan sebagai persen.
-Precedent cukup hanya jika skor >0,75; tepat 75% belum melewati ambang.
-Skor ini mengukur kemiripan dokumen, bukan probabilitas penyebab benar.]
+Dokumen PPTX tervalidasi untuk equipment yang sama memenuhi syarat melalui exact
+equipment match. Rujukan lain harus memiliki similarity >0,75; tepat 75% belum
+melewati ambang. Similarity mengukur kemiripan dokumen, bukan probabilitas penyebab benar.]
 
-[Lima PPTX contoh hanya acuan metode/format. Jangan menggunakannya sebagai
-riwayat kejadian equipment yang dianalisis atau mengarang SOP.]
+[Lima PPTX RCA/CAPA merupakan evidence historis tervalidasi. Gunakan temuan RCA dan
+CAPA yang relevan sebagai precedent, terutama untuk equipment yang sama, tetapi jangan
+menganggap penyebab historis otomatis menjadi penyebab kondisi saat ini.]
 
 ### Rekomendasi pemeriksaan
 
 [Langkah pemeriksaan berdasarkan bukti yang tersedia, untuk ditinjau SME.]
+
+### Tindakan, target waktu, dan KPI corrective
+
+[Tiga tindakan wajib ditulis terpisah: containment/verifikasi segera, corrective action
+setelah penyebab dikonfirmasi, dan recurrence prevention. Satu target waktu relatif dan
+satu KPI outcome diberikan untuk setiap tindakan. Target boleh
+diusulkan secara reasonable dalam hitungan jam atau hari. KPI tidak mensyaratkan lampiran
+atau bukti penyelesaian. Gunakan baseline/limit resmi site dan monitoring window yang
+disetujui SME; jangan mengarang angka batas operasi.]
 
 ### Hasil investigasi SME
 
@@ -128,6 +139,7 @@ di kode atau percakapan. ID harus diambil dari objek yang benar-benar dibuat.
 | CLICKUP_API_TOKEN | Token lokal yang memiliki akses ke workspace tujuan |
 | CLICKUP_LIST_ID | 1100330000067880 |
 | CLICKUP_REVIEW_STATUS | Need Verification |
+| CLICKUP_SOLVED_STATUSES | Nama status final yang ditampilkan sebagai Solved, dipisahkan koma; contoh `done,complete,closed` |
 | CLICKUP_VERIFIED_STATUS | Closed, sesuai status penutupan List ini |
 | CLICKUP_VERIFIED_RCA_FIELD_ID | ID field teks RCA Final SME |
 | CLICKUP_VERIFIED_BY_FIELD_ID | ID field teks Diverifikasi oleh |

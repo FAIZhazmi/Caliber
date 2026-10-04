@@ -15,6 +15,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from dashboard import queries  # noqa: E402
+from dashboard.auth import render_logout, require_login  # noqa: E402
+from dashboard.ai_chatbot import render_ai_chatbot  # noqa: E402
 from dashboard.descriptive import render_overview_tab  # noqa: E402
 from dashboard.executive_view import (  # noqa: E402
     render_predictive_footer,
@@ -33,6 +35,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+require_login()
 
 st.markdown(
     """
@@ -384,6 +388,9 @@ analytics_mode = st.segmented_control(
     width="stretch",
 )
 
+predictive_filters = None
+descriptive_filters = None
+
 if analytics_mode == "Predictive Analytics":
     st.markdown(
         """
@@ -420,6 +427,15 @@ else:
         st.info("Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler.")
     else:
         render_overview_tab(descriptive_filters, parameters_dim, plants_dim)
+
+render_logout()
+
+render_ai_chatbot(
+    PROJECT_ROOT,
+    REPORTING_DIRECTORY,
+    predictive_filters=predictive_filters,
+    descriptive_filters=descriptive_filters,
+)
 
 # Flag the page once the banner has scrolled out of view so the toolbar can switch colours (see CSS above).
 # Scroll events do not bubble, so listen in the capture phase; the guard keeps reruns from stacking listeners.

@@ -11,6 +11,7 @@ import streamlit as st
 
 from dashboard.clickup import (
     ErikaError,
+    fetch_progress_tracking_tasks,
     generate_and_create_progress_tracking,
     progress_tracking_configured,
 )
@@ -54,6 +55,59 @@ SIGNAL_LABELS = {
     "plant_rate": "Plant rate",
     "power_kw": "Power",
 }
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_progress_tracking_tasks() -> dict:
+    return fetch_progress_tracking_tasks()
+
+
+def _progress_task_for_equipment(
+    tasks: list[dict[str, object]], equipment_tag: str
+) -> dict[str, object] | None:
+    """Return the most recently updated ClickUp task for one exact equipment tag."""
+    pattern = re.compile(
+        rf"(?<![A-Z0-9]){re.escape(equipment_tag)}(?![A-Z0-9])",
+        flags=re.IGNORECASE,
+    )
+    matches = [task for task in tasks if pattern.search(str(task.get("name", "")))]
+    if not matches:
+        return None
+    return max(
+        matches,
+        key=lambda task: str(task.get("date_updated") or ""),
+    )
+
+
+def _render_progress_tracking_status(equipment_tag: str) -> None:
+    """Show ClickUp workflow state separately from predictive risk state."""
+    if not progress_tracking_configured():
+        return
+    if st.button(
+        "Refresh ClickUp status",
+        key=f"refresh_progress_status_{equipment_tag}",
+    ):
+        _cached_progress_tracking_tasks.clear()
+    try:
+        board = _cached_progress_tracking_tasks()
+    except ErikaError as exc:
+        st.caption(f"ClickUp workflow status unavailable: {exc}")
+        return
+    task = _progress_task_for_equipment(board.get("tasks", []), equipment_tag)
+    if not task:
+        return
+    dashboard_status = str(task.get("dashboard_status") or task.get("status") or "Unknown")
+    status_color = "#15803d" if dashboard_status == "Solved" else "#1f5fd6"
+    st.markdown(
+        '<span class="executive-status" '
+        f'style="background:{status_color}">Maintenance workflow: '
+        f'{escape(dashboard_status)}</span>',
+        unsafe_allow_html=True,
+    )
+    if dashboard_status == "Solved":
+        st.caption(f"Synced from ClickUp status: {task.get('status')}")
+    if task.get("url"):
+        st.link_button("Open Progress Tracking", str(task["url"]))
 
 
 ATTENTION_CARD_STYLES = """
@@ -465,22 +519,29 @@ def _render_source_notice(summary: dict) -> None:
 @st.dialog("Create Progress Tracking", width="medium")
 def _progress_tracking_dialog(selected: dict[str, object]) -> None:
     equipment_tag = str(selected["equipment_tag"])
-    st.write(f"Equipment: **{equipment_tag}**")
+    status = str(selected.get("risk_level", ""))
+    workflow_type = "CORRECTIVE" if status == "ACTION_NOW" else "PREVENTIVE"
+    st.write(f"Equipment: {equipment_tag}")
     st.info(
-        "RCA tasks and proposed CAPA tasks will only be created in the RCA & Action "
-        "Management folder. Their content uses the current snapshot and machine-learning "
-        "results; PPTX files are used only as report-structure references."
+        (
+            "One CORRECTIVE ClickUp task containing RCA and CAPA will be created in "
+            "RCA & Action Management."
+            if workflow_type == "CORRECTIVE"
+            else "One PREVENTIVE ClickUp task containing CAPA only will be created; no RCA "
+                 "content or RCA reference will be sent."
+        )
     )
     st.markdown(
-        """
-1. The RCA task and every CAPA task must first be reviewed by an SME.
-2. Every new task starts in **TO REVIEW**.
-3. If an action is approved, the SME must assign an owner and timeline, then move the task to **TO DO**.
-4. When work begins, the owner changes the status to **IN PROGRESS**, then to **DONE** after completion.
+        f"""
+1. The {workflow_type} task starts in TO REVIEW.
+2. The maintenance SME confirms the evidence and proposed CAPA actions.
+3. Corrective tasks include proposed target times and KPIs, while the owner remains unassigned.
+4. Once approved, the SME assigns the owner manually and moves the task to TO DO.
+5. The owner moves the task to IN PROGRESS when work begins and DONE when completed.
         """
     )
     confirmed = st.checkbox(
-        "I understand that the AI output is a draft and requires SME approval.",
+        "I understand that the assessment requires maintenance SME approval.",
         key=f"progress_confirm_{equipment_tag}",
     )
     configured = progress_tracking_configured()
@@ -491,15 +552,17 @@ def _progress_tracking_dialog(selected: dict[str, object]) -> None:
             "the dashboard process."
         )
     if st.button(
-        "Create RCA & CAPA Tasks",
+        "Create Corrective RCA & CAPA" if workflow_type == "CORRECTIVE"
+        else "Create Preventive CAPA",
         type="primary",
         disabled=not confirmed or not configured,
         key=f"progress_submit_{equipment_tag}",
     ):
         try:
-            with st.spinner("Generating RCA/CAPA and creating linked ClickUp tasks..."):
+            with st.spinner("Generating assessment and creating one ClickUp task..."):
                 result = generate_and_create_progress_tracking(selected)
             st.session_state[f"progress_result_{equipment_tag}"] = result
+            _cached_progress_tracking_tasks.clear()
         except ErikaError:
             st.error(
                 "Progress Tracking could not be created. Verify the ClickUp connection "
@@ -510,16 +573,8 @@ def _progress_tracking_dialog(selected: dict[str, object]) -> None:
 
     result = st.session_state.get(f"progress_result_{equipment_tag}")
     if result:
-        st.success(
-            f"The RCA task and {len(result['capa_tasks'])} CAPA task(s) are available in ClickUp."
-        )
-        st.link_button("Open RCA task", result["rca_task"]["url"])
-        for index, task in enumerate(result["capa_tasks"], start=1):
-            st.link_button(f"Open CAPA task {index}", task["url"])
-            if task.get("link_error"):
-                st.warning(
-                    f"CAPA task {index} was created, but it could not be linked to the RCA task."
-                )
+        st.success(f"The {result.get('workflow_type', workflow_type)} task is available in ClickUp.")
+        st.link_button("Open ClickUp task", result["task"]["url"])
 
 
 def _render_priority_detail(
@@ -540,6 +595,7 @@ def _render_priority_detail(
         f"{selected['plant']} · {selected['equipment_type']} · "
         f"Criticality {selected['criticality']}"
     )
+    _render_progress_tracking_status(equipment_tag)
 
     decision_left, decision_right = st.columns([1, 1])
     with decision_left:

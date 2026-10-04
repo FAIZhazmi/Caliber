@@ -7,15 +7,10 @@ from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 
 from dashboard.data import DashboardDataError
+from dashboard.executive_view import _progress_task_for_equipment
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DESCRIPTIVE_TAB_LABELS = [
-    "Production Data", "Incident Database", "Equipment Performance",
-    "Downtime Data", "Energy & Emissions",
-]
-
-
 class DashboardNavigationTests(TestCase):
     def setUp(self):
         # Never perform ClickUp requests or writes while checking navigation.
@@ -59,14 +54,24 @@ class DashboardNavigationTests(TestCase):
                 ))
                 self.assertFalse(any(s.key == "erika_equipment" for s in app.selectbox))
                 self.assertFalse(any(b.key == "clickup_board_refresh" for b in app.button))
+                self.assertEqual(len(app.get("popover")), 1)
+                self.assertTrue(any(
+                    item.key == "caliber_ai_prompt" for item in app.chat_input
+                ))
+                self.assertTrue(any(
+                    button.key == "core_ai_clear_history"
+                    and button.label == "Clear chat history"
+                    for button in app.button
+                ))
 
-    def test_descriptive_workspace_exposes_all_historical_tabs(self):
+    def test_descriptive_workspace_uses_the_unified_overview(self):
         app = self.run_dashboard()
         workspace = next(widget for widget in app.segmented_control
                          if widget.key == "analytics_workspace")
         app = workspace.set_value("Descriptive Analytics").run()
         self.assertFalse(app.exception, [item.message for item in app.exception])
-        self.assertEqual([tab.label for tab in app.tabs], DESCRIPTIVE_TAB_LABELS)
+        self.assertFalse(app.tabs)
+        self.assertTrue(any("cannot connect" in e.value for e in app.error))
 
     def test_missing_reporting_keeps_descriptive_tabs_accessible(self):
         with patch("dashboard.data.load_dashboard_data", side_effect=DashboardDataError("missing")):
@@ -74,7 +79,7 @@ class DashboardNavigationTests(TestCase):
             workspace = next(widget for widget in app.segmented_control
                              if widget.key == "analytics_workspace")
             app = workspace.set_value("Descriptive Analytics").run()
-        self.assertEqual([tab.label for tab in app.tabs], DESCRIPTIVE_TAB_LABELS)
+        self.assertFalse(app.tabs)
         self.assertTrue(any("cannot connect" in e.value for e in app.error))
 
     def test_predictive_equipment_filter_selects_detail_scope(self):
@@ -106,3 +111,12 @@ class DashboardNavigationTests(TestCase):
                     widget for widget in app.selectbox
                     if widget.key == "predictive_equipment_filter"
                 )
+
+    def test_progress_status_matches_exact_equipment_and_uses_latest_task(self):
+        tasks = [
+            {"name": "[CAPA] PM-4405B - old", "date_updated": "100", "status": "to do"},
+            {"name": "[CAPA] PM-4405B - latest", "date_updated": "200", "status": "done"},
+            {"name": "[CAPA] PM-4405BA - other", "date_updated": "300", "status": "done"},
+        ]
+        matched = _progress_task_for_equipment(tasks, "PM-4405B")
+        self.assertEqual(matched["status"], "done")
