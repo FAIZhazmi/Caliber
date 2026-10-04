@@ -348,7 +348,7 @@ def _ollama_generate(prompt: str, parameters: dict) -> str:
     ).rstrip("/")
     model = str(
         os.environ.get("OLLAMA_MODEL")
-        or parameters.get("model", "qwen2.5:3b")
+        or parameters.get("model", "qwen3.5:4b")
     )
     body = json.dumps(
         {
@@ -483,7 +483,7 @@ def build_grounded_inspection_guidance(
                 "shap_feature_groups": ", ".join(dict.fromkeys(groups)),
                 "llm_provider": "ollama" if ollama_enabled else "none",
                 "llm_model": (
-                    str(generation.get("model", "qwen2.5:3b"))
+                    str(generation.get("model", "qwen3.5:4b"))
                     if ollama_enabled
                     else None
                 ),

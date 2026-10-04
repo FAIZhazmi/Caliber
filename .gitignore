@@ -1,4 +1,5 @@
 .vendor/
+.venv/
 .pip-cache/
 .tmp/
 runtime_tmp/
@@ -14,7 +15,6 @@ data/02_intermediate/
 data/03_primary/
 data/04_feature/
 data/05_model_input/
-
 # simulation: generated/exported data (large, reproducible)
 simulation/seed/
 simulation/output/
@@ -22,3 +22,4 @@ simulation/backup/
 
 # personal Claude Code permission overrides
 .claude/settings.local.json
+data/09_erika/

@@ -237,14 +237,15 @@ safety disclaimer.
 
 ## Dashboards
 
-Two Streamlit applications deliberately serve different audiences:
+Both launchers open the same unified Streamlit dashboard with seven tabs and shared
+Plant / Discipline / Equipment Class / Equipment Type / Equipment / Date filters:
 
 | Application | Port | Audience | Contents |
 |---|---:|---|---|
-| Executive Dashboard | 8501 | Executives and the final combined dashboard | `Ringkasan Eksekutif` for predictive decisions plus the merged `Analitika Deskriptif` tab backed by Supabase |
-| ML Console | 8502 | Data/ML team | Scores, thresholds, validation/test evidence, label audit, robustness, SHAP, episode/cooldown, and model documentation |
+| Unified Dashboard | 8501 | Executives and team | Executive Summary; Production Data; Incident Database; Equipment Performance; Downtime Data; Energy & Emissions; ML: Ringkasan |
+| Dashboard (existing launcher) | 8502 | Team | The same seven tabs as port 8501 |
 
-Open two terminals and run the `.cmd` launchers (these do not require changing
+Run either `.cmd` launcher (these do not require changing
 the Windows PowerShell execution policy):
 
 ```powershell
@@ -254,14 +255,23 @@ the Windows PowerShell execution policy):
 
 The equivalent `.ps1` launchers are also available for systems that allow PowerShell scripts.
 
-The Executive Dashboard intentionally does not display precision/recall, raw scores,
+The Executive Summary tab intentionally does not display precision/recall, raw scores,
 thresholds, SHAP values, similarity numbers, or backtest tables. The 30-day experimental
 warning remains visible because it materially affects how a decision should be interpreted.
 
-The descriptive tab requires a direct read-only PostgreSQL connection. Copy the
-`SUPABASE_DB_URL` Session Pooler value from Supabase into `.env` as documented in
-`.env.example`. If it is missing or unavailable, only the descriptive tab shows a connection
-message; the predictive executive summary continues to work from reporting artifacts.
+Descriptive tabs use the read-only PostgreSQL connection when `SUPABASE_DB_URL` is set.
+Otherwise, they use the existing `SUPABASE_URL` and `SUPABASE_SECRET_KEY` to fetch the eight
+source tables through REST into an ignored local SQLite snapshot. SQL aggregations and
+filters run against that snapshot; the API key stays on the server. The sidebar shows when
+the snapshot was captured and provides **Perbarui data Supabase** to refresh it. A failed
+refresh preserves the previous snapshot. No writes are made to Supabase.
+
+If neither data connection is configured, descriptive tabs show a connection message;
+the other tabs remain accessible. A module error is contained in its own tab. The tab bar
+wraps onto additional rows on narrower screens so all seven tabs remain visible.
+
+ML Equipment, ML Plant, Model & data, RCA and Tracking ClickUp are not displayed in this
+dashboard. Their local implementation remains available for separate development workflows.
 
 The predictive executive section remains reusable in another combined dashboard without
 copying any model logic:
@@ -281,8 +291,67 @@ guidance and clearly falls back to deterministic guidance when Ollama is unavail
 modes the LLM may phrase inspection steps only; it cannot change risk status, select an RCA
 precedent, diagnose a failure, or authorise shutdown.
 
-Both applications read only `data/08_reporting` and never load Supabase credentials, source
-tables, or serialized estimators.
+Executive and ML views read `data/08_reporting`. Descriptive views query Supabase on the
+server. RCA actions use the existing local Ollama/SHAP workflow; ClickUp tracking reads the
+API when configured or displays a dated local snapshot. Opening the dashboard does not
+generate drafts or create tasks; the **Create Progress Tracking** button in Executive Summary
+opens an instruction dialog and requires explicit confirmation.
+
+### Scope Erika: RCA demo and ClickUp
+
+The `Erika: RCA & ClickUp` tab lets the team manually select equipment for a **demo analysis**;
+manual selection is not a Faiz alert. Case evidence comes from the available sensor snapshot
+and Faiz reporting outputs; the dashboard does not fetch fresh Supabase data. The five PPTX
+decks are examples of RCA structure/method only and are excluded from incident retrieval,
+Qwen case evidence, and task incident references. The dashboard renders a readable Indonesian
+report rather than raw JSON. Only closed, SME-verified ClickUp records enter incident search.
+The 0.75 threshold remains configured for that verified corpus and is not applied to the
+example decks. Drafts use local Ollama at `127.0.0.1` with `qwen3.5:4b`. If the
+local service or model is unavailable, the backend falls back to Ollama Cloud model
+`gemma4:31b` using the server-side `OLLAMA_API_KEY`; credentials are never sent to the browser.
+When fallback is used, the case prompt and its supplied evidence are processed by Ollama Cloud.
+
+SHAP `TreeExplainer` is validated against both saved Faiz estimators. To calculate case-specific
+feature contributions, provide `data/04_feature/equipment_latest_features.parquet` with the
+exact scored equipment/timestamp and all 80 model features. The dashboard checks additivity
+against the estimator before showing the top three contributions. Sensor deviations remain
+separate context. Install the dashboard dependencies with `python -m pip install -e ".[dashboard]"`
+or install `shap` from `requirements.txt` in the project virtual environment.
+
+ClickUp uses `CLICKUP_API_TOKEN`, `CLICKUP_LIST_ID`, and optional workspace-confirmed
+`CLICKUP_ASSIGNEE_IDS` / `CLICKUP_GROUP_ASSIGNEE_IDS` settings (see `.env.example`). Settings
+can come from environment variables, `.env`, or ignored `.streamlit/secrets.toml`. The target
+List must define the `to review` status (or configure `CLICKUP_REVIEW_STATUS` to its
+actual name). After the AI returns a draft, the same dashboard action creates the ClickUp task
+and checklist automatically when credentials are available; without them, it shows a dry-run
+preview. Task ID and URL are stored under ignored `data/09_erika/`, and repeat clicks reuse
+the task for the same List, equipment and snapshot. Destination status is checked before
+creation, and a task with a different stored draft is not silently overwritten or duplicated.
+
+The active destination is the single **Team Space / RCA & Action Management / List** workflow
+(`1100330000081187`) for both RCA review and proposed CAPA tasks. Every task starts in
+`to review`; each CAPA is created without a PIC or deadline. If approved, the SME assigns its
+PIC and timeline and moves it to `to do`; the PIC then advances it to `in progres` and `done`.
+The integration rejects any workspace, space, folder, or List outside this fixed workflow.
+See [Team Space setup](docs/clickup_team_space.md).
+The **Tracking ClickUp** tab shows both Lists as a status board with task cards and links.
+When `CLICKUP_API_TOKEN` is set locally, it reads both Lists through the authenticated API
+and refreshes on demand; API results are cached for 60 seconds to avoid repeated calls.
+Without a token, the tab shows an explicitly dated, ignored local snapshot that was fetched
+through the connected ClickUp session. The snapshot is not presented as live data. Private
+task contents are not published through an iframe.
+The dashboard, report download and ClickUp description share one report formatter. Validated
+AI drafts are stored in ignored `data/09_erika/analyses/` using a fingerprint of the input,
+model name, prompt, schema and generation options. Identical inputs reuse that result without
+another model call. Temperature 0 and a fixed seed reduce generation variation; SME review
+is still required. Changing the case data or evidence produces a new analysis fingerprint.
+
+SME verification happens in ClickUp. To import a final RCA, configure a closed
+`CLICKUP_VERIFIED_STATUS` and text Custom Field IDs `CLICKUP_VERIFIED_RCA_FIELD_ID` and
+`CLICKUP_VERIFIED_BY_FIELD_ID`. The dashboard's sync button checks status, closure, and both
+fields through the API before adding the resolution to local RCA search. Draft AI text is
+never ingested as verified history. The repository contains no standalone verified SOP, so
+the no-precedent branch says so and gives limited general review guidance.
 
 ## Data layers
 
