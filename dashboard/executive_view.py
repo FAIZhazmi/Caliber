@@ -12,7 +12,6 @@ import streamlit as st
 from dashboard.clickup import (
     ErikaError,
     generate_and_create_progress_tracking,
-    progress_tracking_configuration_error,
     progress_tracking_configured,
 )
 from dashboard.cards import render_gradient_cards
@@ -247,10 +246,14 @@ ATTENTION_CARD_STYLES = """
 
 _TRANSLATIONS = {
     "Review dalam 24 jam dan jadwalkan pemeliharaan": "Review within 24 hours and schedule maintenance",
+    "Inspeksi segera dan siapkan tindakan pemeliharaan": "Inspect immediately and prepare a maintenance action",
+    "Verifikasi integritas sensor dan hitung ulang prediksi sebelum tindakan": "Verify sensor integrity and recalculate the prediction before taking action",
     "Pantau tren pada shift berikutnya dan verifikasi kondisi sensor": "Monitor the trend on the next shift and verify sensor condition",
     "Lanjutkan pemantauan rutin": "Continue routine monitoring",
     "Lulus guardrail": "Passed guardrail",
     "Sinyal belum memenuhi warning threshold dan aturan persistence": "Signals have not met the warning threshold and persistence rule",
+    "Alert model ditahan oleh guardrail kualitas data: ": "The model alert is withheld by the data-quality guardrail: ",
+    "fitur di luar rentang training": "features outside the training range",
     "Skor model persisten melewati warning threshold": "Model score persistently exceeds the warning threshold",
     "Skor model 30 hari persisten melewati action threshold": "30-day model score persistently exceeds the action threshold",
     "Skor model 7 hari persisten melewati action threshold": "7-day model score persistently exceeds the action threshold",
@@ -264,6 +267,7 @@ _TRANSLATIONS = {
     "Validasi flowmeter dan bandingkan feed rate dengan operating point serta kondisi valve.": "Validate the flowmeter and compare feed rate against the operating point and valve condition.",
     "Validasi pressure transmitter/differential pressure lalu periksa restriction, fouling, valve position, dan kondisi aliran.": "Validate the pressure transmitter/differential pressure, then check restriction, fouling, valve position, and flow condition.",
     "Panduan ini untuk inspeksi awal, bukan diagnosis kerusakan atau otorisasi shutdown/maintenance.": "This guidance is for preliminary inspection, not a damage diagnosis or shutdown/maintenance authorization.",
+    "Prediksi dan pencarian RCA ditahan. Verifikasi integritas sensor, perbaiki kualitas data, lalu jalankan ulang scoring sebelum inspeksi berbasis model.": "Prediction and RCA retrieval are on hold. Verify sensor integrity, correct the data-quality issue, then rerun scoring before any model-guided inspection.",
 }
 
 
@@ -463,28 +467,28 @@ def _progress_tracking_dialog(selected: dict[str, object]) -> None:
     equipment_tag = str(selected["equipment_tag"])
     st.write(f"Equipment: **{equipment_tag}**")
     st.info(
-        "Task RCA dan usulan CAPA akan dibuat hanya di folder RCA & Action Management. "
-        "Kontennya menggunakan snapshot dan hasil machine learning Faiz; file PPTX hanya "
-        "menjadi acuan struktur laporan."
+        "RCA tasks and proposed CAPA tasks will only be created in the RCA & Action "
+        "Management folder. Their content uses the current snapshot and machine-learning "
+        "results; PPTX files are used only as report-structure references."
     )
     st.markdown(
         """
-1. Task RCA dan setiap task CAPA harus direview terlebih dahulu oleh SME.
-2. Semua task baru masuk ke **TO REVIEW**.
-3. Jika action disetujui, SME wajib menetapkan PIC dan timeline, lalu memindahkan task ke **TO DO**.
-4. Saat pekerjaan dimulai, PIC mengubah status menjadi **IN PROGRES**, lalu **DONE** setelah selesai.
+1. The RCA task and every CAPA task must first be reviewed by an SME.
+2. Every new task starts in **TO REVIEW**.
+3. If an action is approved, the SME must assign an owner and timeline, then move the task to **TO DO**.
+4. When work begins, the owner changes the status to **IN PROGRESS**, then to **DONE** after completion.
         """
     )
     confirmed = st.checkbox(
-        "Saya memahami bahwa hasil AI masih berupa draft dan memerlukan persetujuan SME.",
+        "I understand that the AI output is a draft and requires SME approval.",
         key=f"progress_confirm_{equipment_tag}",
     )
     configured = progress_tracking_configured()
     if not configured:
         st.warning(
-            "Koneksi Progress Tracking belum aktif. "
-            f"{progress_tracking_configuration_error()} Perbaiki file .env lokal, lalu "
-            "restart proses dashboard."
+            "The Progress Tracking connection is not active. "
+            "Verify the required ClickUp values in the local .env file, then restart "
+            "the dashboard process."
         )
     if st.button(
         "Create RCA & CAPA Tasks",
@@ -496,23 +500,25 @@ def _progress_tracking_dialog(selected: dict[str, object]) -> None:
             with st.spinner("Generating RCA/CAPA and creating linked ClickUp tasks..."):
                 result = generate_and_create_progress_tracking(selected)
             st.session_state[f"progress_result_{equipment_tag}"] = result
-        except ErikaError as exc:
-            st.error(str(exc))
+        except ErikaError:
+            st.error(
+                "Progress Tracking could not be created. Verify the ClickUp connection "
+                "and task configuration, then try again."
+            )
         except Exception as exc:  # Keep the dialog open and avoid a full dashboard crash.
-            st.error(f"Progress Tracking gagal dibuat: {exc}")
+            st.error(f"Progress Tracking could not be created: {exc}")
 
     result = st.session_state.get(f"progress_result_{equipment_tag}")
     if result:
         st.success(
-            f"Task RCA dan {len(result['capa_tasks'])} task CAPA tersedia di ClickUp."
+            f"The RCA task and {len(result['capa_tasks'])} CAPA task(s) are available in ClickUp."
         )
         st.link_button("Open RCA task", result["rca_task"]["url"])
         for index, task in enumerate(result["capa_tasks"], start=1):
             st.link_button(f"Open CAPA task {index}", task["url"])
             if task.get("link_error"):
                 st.warning(
-                    f"CAPA task {index} berhasil dibuat, tetapi link ke RCA gagal: "
-                    f"{task['link_error']}"
+                    f"CAPA task {index} was created, but it could not be linked to the RCA task."
                 )
 
 

@@ -1,0 +1,19 @@
+plant_forecasting:
+  horizon_days: 30
+  history_days: 365
+  backtest_horizon_days: 30
+  rolling_folds: 3
+  minimum_training_days: 365
+  maximum_missing_day_fraction: 0.02
+  lags: [1, 2, 3, 7, 14, 28]
+  ridge_alpha: 5.0
+  boosting_learning_rate: 0.05
+  boosting_max_iter: 150
+  boosting_max_leaf_nodes: 15
+  boosting_min_samples_leaf: 20
+  boosting_l2_regularization: 1.0
+  minimum_improvement_pct: 1.0
+  minimum_fold_win_rate: 0.6666667
+  forecast_clip_margin: 0.35
+  interval_z: 1.28155
+  random_state: 42

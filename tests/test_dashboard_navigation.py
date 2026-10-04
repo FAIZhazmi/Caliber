@@ -45,6 +45,18 @@ class DashboardNavigationTests(TestCase):
                     widget.key == "predictive_equipment_filter"
                     for widget in app.selectbox
                 ))
+                self.assertTrue(any(
+                    widget.key == "plant_forecast_plant_filter"
+                    for widget in app.selectbox
+                ))
+                self.assertTrue(any(
+                    widget.key == "plant_forecast_target_filter"
+                    for widget in app.selectbox
+                ))
+                self.assertTrue(any(
+                    widget.key == "plant_forecast_horizon_filter"
+                    for widget in app.selectbox
+                ))
                 self.assertFalse(any(s.key == "erika_equipment" for s in app.selectbox))
                 self.assertFalse(any(b.key == "clickup_board_refresh" for b in app.button))
 

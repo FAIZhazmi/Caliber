@@ -195,7 +195,7 @@ def render_predictive_inline_filters(
             "Horizon forecast",
             [7, 14, 30],
             index=2,
-            format_func=lambda value: f"{value} hari",
+            format_func=lambda value: f"{value} days",
             key="predictive_horizon_filter",
             width="stretch",
         )

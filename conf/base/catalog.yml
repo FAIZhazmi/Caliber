@@ -224,6 +224,31 @@ equipment_forecast_summary:
   filepath: data/08_reporting/equipment_forecast_summary.json
   save_args: {indent: 2}
 
+plant_forecast_history:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/plant_forecast_history.parquet
+  save_args: {compression: zstd}
+
+plant_forecast_predictions:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/plant_forecast_predictions.parquet
+  save_args: {compression: zstd}
+
+plant_forecast_metrics:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/plant_forecast_metrics.parquet
+  save_args: {compression: zstd}
+
+plant_forecast_backtest:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/plant_forecast_backtest.parquet
+  save_args: {compression: zstd}
+
+plant_forecast_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/plant_forecast_summary.json
+  save_args: {indent: 2}
+
 alert_episode_details:
   type: pandas.ParquetDataset
   filepath: data/07_model_output/alert_episode_details.parquet

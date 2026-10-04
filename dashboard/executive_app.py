@@ -21,6 +21,7 @@ from dashboard.executive_view import (  # noqa: E402
     render_predictive_maintenance_executive,
 )
 from dashboard.filters import render_sidebar_filters  # noqa: E402
+from dashboard.plant_forecast_view import render_plant_forecast_outlook  # noqa: E402
 from dashboard.regression_viz import render_predictive_evidence  # noqa: E402
 
 
@@ -402,6 +403,7 @@ if analytics_mode == "Predictive Analytics":
             equipment=predictive_filters.equipment_tag,
             horizon_days=predictive_filters.horizon_days,
         )
+    render_plant_forecast_outlook(REPORTING_DIRECTORY)
     render_predictive_footer()
 else:
     (equipment_dim, plants_dim, parameters_dim, min_date, max_date, db_error) = (

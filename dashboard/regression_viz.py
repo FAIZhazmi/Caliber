@@ -381,7 +381,7 @@ def _fit_logistic(train: pd.DataFrame, test: pd.DataFrame, columns: list[str]):
 
 def _strength(auc: float) -> str:
     distance = abs(auc - 0.5)
-    return "Kuat" if distance >= 0.20 else "Sedang" if distance >= 0.10 else "Lemah"
+    return "Strong" if distance >= 0.20 else "Moderate" if distance >= 0.10 else "Weak"
 
 
 def _summary(data: pd.DataFrame) -> pd.DataFrame:
@@ -397,14 +397,16 @@ def _summary(data: pd.DataFrame) -> pd.DataFrame:
         rows.append({
             "key": sensor,
             "Parameter": label,
-            "Arah": "Naik bersama risiko" if coefficient >= 0 else "Turun saat risiko naik",
-            "Kekuatan": _strength(auc),
-            "Koefisien": coefficient,
+            "Direction": "Increases with risk" if coefficient >= 0 else "Decreases as risk rises",
+            "Strength": _strength(auc),
+            "Coefficient": coefficient,
             "AUC": auc,
         })
     if not rows:
         return pd.DataFrame()
-    return pd.DataFrame(rows).sort_values("Koefisien", key=abs, ascending=False).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values(
+        "Coefficient", key=abs, ascending=False
+    ).reset_index(drop=True)
 
 
 def render_predictive_forecast_evidence(
@@ -423,7 +425,7 @@ def render_predictive_forecast_evidence(
     else:
         daily, events = _load_forecast_dataset(str(project_root))
     if daily.empty:
-        st.warning("Artifact forecast dan data harian fallback belum tersedia.")
+        st.warning("Forecast artifacts and fallback daily data are not available yet.")
         return
 
     label_to_sensor = {label: sensor for sensor, label in SENSORS.items()}
@@ -452,7 +454,7 @@ def render_predictive_forecast_evidence(
                 "Horizon forecast",
                 [7, 14, 30],
                 index=2,
-                format_func=lambda value: f"{value} hari",
+                format_func=lambda value: f"{value} days",
                 key="forecast_horizon",
             )
     else:
@@ -464,7 +466,7 @@ def render_predictive_forecast_evidence(
             return
         sensor_label = SENSORS[parameter]
         st.caption(
-            f"Predictive filter: {equipment} · {sensor_label} · horizon {horizon} hari"
+            f"Predictive filter: {equipment} | {sensor_label} | {horizon}-day horizon"
         )
 
     sensor = str(parameter)
@@ -490,7 +492,7 @@ def render_predictive_forecast_evidence(
             equipment_risk["segment"].eq("forecast")
         ].head(horizon)
         if selected_forecast.empty or quality.empty or risk_future.empty:
-            st.warning(f"Artifact forecast untuk {equipment} belum lengkap.")
+            st.warning(f"The forecast artifacts for {equipment} are incomplete.")
             return
         selected_quality = quality.iloc[0].to_dict()
         validation_auc = (
@@ -501,7 +503,7 @@ def render_predictive_forecast_evidence(
     else:
         sensor_forecasts: dict[str, pd.DataFrame] = {}
         selected_quality: dict = {}
-        with st.spinner("Menghitung forecast sensor dan proyeksi risiko..."):
+        with st.spinner("Calculating sensor forecasts and risk projections..."):
             for sensor_name in SENSORS:
                 series = history.set_index("date")[sensor_name]
                 if sensor_name == sensor:
@@ -527,11 +529,11 @@ def render_predictive_forecast_evidence(
         abs(latest_value) * 0.005,
     )
     if abs(forecast_change) <= stable_tolerance:
-        trend_label = "Stabil"
+        trend_label = "Stable"
     elif forecast_change > 0:
-        trend_label = "Naik"
+        trend_label = "Increasing"
     else:
-        trend_label = "Turun"
+        trend_label = "Decreasing"
     peak_position = int(risk_future["risk"].to_numpy().argmax())
     peak_risk = float(risk_future.iloc[peak_position]["risk"])
     peak_date = pd.Timestamp(risk_future.iloc[peak_position]["date"])
@@ -550,28 +552,28 @@ def render_predictive_forecast_evidence(
     render_gradient_cards(
         [
             {
-                "label": f"{sensor_label} terakhir",
+                "label": f"Latest {sensor_label}",
                 "value": f"{latest_value:,.2f}",
                 "detail": f"{recent_position(latest_value):.0f}% recent range",
                 "palette": "purple",
                 "icon": "∿",
             },
             {
-                "label": f"Forecast hari ke-{horizon}",
+                "label": f"Day-{horizon} forecast",
                 "value": f"{end_value:,.2f}",
                 "detail": f"{end_value - latest_value:+,.2f} vs latest",
                 "palette": "blue",
                 "icon": "↗",
             },
             {
-                "label": "Arah tren forecast",
+                "label": "Forecast direction",
                 "value": trend_label,
                 "detail": change_text,
                 "palette": "coral",
                 "icon": "→",
             },
             {
-                "label": "Puncak risiko eksperimen",
+                "label": "Peak experimental risk",
                 "value": f"{peak_risk * 100:.2f}%",
                 "detail": peak_date.strftime("%d %b"),
                 "palette": "green",
@@ -583,21 +585,21 @@ def render_predictive_forecast_evidence(
     final_lower = float(selected_forecast["lower"].iloc[-1])
     final_upper = float(selected_forecast["upper"].iloc[-1])
     st.info(
-        f"**Arah masa depan: {trend_label}.** {sensor_label} diproyeksikan berubah "
-        f"dari **{latest_value:,.2f}** menjadi **{end_value:,.2f}** dalam {horizon} hari. "
-        f"Rentang estimasi hari terakhir: **{final_lower:,.2f} - {final_upper:,.2f}**."
+        f"**Future direction: {trend_label}.** {sensor_label} is projected to change "
+        f"from **{latest_value:,.2f}** to **{end_value:,.2f}** over {horizon} days. "
+        f"Final-day estimate range: **{final_lower:,.2f} - {final_upper:,.2f}**."
     )
 
     if not selected_quality["better_than_naive"]:
         st.warning(
-            f"Backtest {sensor_label} belum mengalahkan baseline nilai terakhir "
+            f"The {sensor_label} backtest has not beaten the last-value baseline "
             f"(MAE model {selected_quality['mae']:.3f}; baseline "
-            f"{selected_quality['naive_mae']:.3f}). Interpretasikan forecast dengan hati-hati."
+            f"{selected_quality['naive_mae']:.3f}). Interpret this forecast with caution."
         )
     else:
         st.caption(
-            f"Backtest {selected_quality['holdout_days']} hari: MAE model "
-            f"{selected_quality['mae']:.3f}, lebih baik daripada baseline "
+            f"{selected_quality['holdout_days']}-day backtest: model MAE "
+            f"{selected_quality['mae']:.3f}, better than the baseline "
             f"{selected_quality['naive_mae']:.3f}."
         )
 
@@ -624,7 +626,7 @@ def render_predictive_forecast_evidence(
         line={"color": "#49a98b", "width": 2.4},
         fill="tozeroy",
         fillcolor="rgba(73,169,139,.10)",
-        name="Aktual",
+        name="Actual",
     )
     parameter_chart.add_vrect(
         x0=boundary,
@@ -650,7 +652,7 @@ def render_predictive_forecast_evidence(
         line={"width": 0},
         fill="tonexty",
         fillcolor="rgba(73,169,139,.14)",
-        name="Rentang prediksi 80%",
+        name="80% prediction range",
         hoverinfo="skip",
     )
     forecast_dates = [boundary, *selected_forecast["date"].tolist()]
@@ -661,7 +663,7 @@ def render_predictive_forecast_evidence(
         mode="lines+markers",
         line={"color": "#2f8f76", "width": 2.8, "dash": "dash"},
         marker={"size": 3.5, "color": "#2f8f76"},
-        name=f"Forecast {horizon} hari",
+        name=f"{horizon}-day forecast",
     )
     if not relevant_events.empty:
         event_days = relevant_events["failure_date"].dt.floor("D")
@@ -671,18 +673,18 @@ def render_predictive_forecast_evidence(
             y=event_values,
             mode="markers",
             marker={"symbol": "triangle-up", "size": 12, "color": "#dc2626"},
-            name="Insiden aktual",
+            name="Actual incident",
         )
     parameter_chart.add_vline(
         x=boundary.timestamp() * 1000,
         line={"color": "#475569", "width": 2, "dash": "dot"},
-        annotation_text="Mulai forecast",
+        annotation_text="Forecast starts",
         annotation_position="top",
     )
     parameter_chart.update_layout(
         **_executive_chart_layout(
-            f"{equipment} · {sensor_label}: aktual dan forecast ({trend_label.lower()})",
-            "Tanggal",
+            f"{equipment} | {sensor_label}: actual and forecast ({trend_label.lower()})",
+            "Date",
             sensor_label,
         )
     )
@@ -706,7 +708,7 @@ def render_predictive_forecast_evidence(
         y=risk_history["risk"] * 100,
         mode="lines",
         line={"color": "#64748b", "width": 2},
-        name="Rekonstruksi historis",
+        name="Historical reconstruction",
     )
     risk_chart.add_scatter(
         x=risk_future["date"],
@@ -723,20 +725,20 @@ def render_predictive_forecast_evidence(
         line={"width": 0},
         fill="tonexty",
         fillcolor="rgba(73,169,139,.13)",
-        name="Rentang risiko 80%",
+        name="80% risk range",
     )
     risk_chart.add_bar(
         x=risk_future["date"],
         y=risk_future["risk"] * 100,
         marker_color="rgba(73,169,139,.20)",
-        name="Risiko harian",
+        name="Daily risk",
     )
     risk_chart.add_scatter(
         x=risk_future["date"],
         y=risk_future["risk"].rolling(7, min_periods=1).mean() * 100,
         mode="lines",
         line={"color": "#2f8f76", "width": 2.8},
-        name="Tren 7 hari",
+        name="7-day trend",
     )
     risk_chart.add_vline(
         x=boundary.timestamp() * 1000,
@@ -744,9 +746,9 @@ def render_predictive_forecast_evidence(
     )
     risk_chart.update_layout(
         **_executive_chart_layout(
-            f"{equipment} · proyeksi risiko kejadian dalam 7 hari",
-            "Tanggal",
-            "Risiko eksperimental (%)",
+            f"{equipment} | projected 7-day event risk",
+            "Date",
+            "Experimental risk (%)",
         ),
         bargap=0.18,
     )
@@ -792,8 +794,8 @@ def render_predictive_forecast_evidence(
                 config={"displayModeBar": False, "scrollZoom": False},
             )
             st.caption(
-                "Garis penuh = data aktual. Garis putus-putus = arah forecast. "
-                "Area hijau = rentang ketidakpastian 80%; semakin lebar, semakin tidak pasti."
+                "Solid line = actual data. Dashed line = forecast direction. "
+                "Green area = 80% uncertainty range; wider means less certain."
             )
     with risk_column:
         with st.container(border=True):
@@ -807,40 +809,42 @@ def render_predictive_forecast_evidence(
                 config={"displayModeBar": False, "scrollZoom": False},
             )
             st.caption(
-                "Bar menunjukkan risiko setiap tanggal; garis hijau merangkum tren 7 hari. "
-                "Nilai ini berasal dari model penjelas berbasis forecast sensor dan belum "
-                "digunakan untuk menetapkan ACTION_NOW atau PLAN_MAINTENANCE."
+                "Bars show risk by date; the green line summarizes the 7-day trend. "
+                "These values come from an explanatory model based on sensor forecasts "
+                "and do not determine ACTION_NOW or PLAN_MAINTENANCE."
             )
 
 
 def _render_summary(summary: pd.DataFrame) -> None:
-    st.markdown("### Kesimpulan cepat")
+    st.markdown("### Quick summary")
     if summary.empty:
-        st.warning("Hubungan parameter belum dapat dihitung.")
+        st.warning("Parameter relationships cannot be calculated yet.")
         return
-    positive, negative = summary[summary.Koefisien.gt(0)], summary[summary.Koefisien.lt(0)]
+    positive = summary[summary.Coefficient.gt(0)]
+    negative = summary[summary.Coefficient.lt(0)]
     col1, col2, col3 = st.columns(3)
-    col1.metric("Hubungan paling menonjol", summary.iloc[0].Parameter)
-    col2.metric("Asosiasi positif teratas", positive.iloc[0].Parameter if len(positive) else "-")
-    col3.metric("Asosiasi negatif teratas", negative.iloc[0].Parameter if len(negative) else "-")
+    col1.metric("Strongest relationship", summary.iloc[0].Parameter)
+    col2.metric("Top positive association", positive.iloc[0].Parameter if len(positive) else "-")
+    col3.metric("Top negative association", negative.iloc[0].Parameter if len(negative) else "-")
     st.info(
-        "Grafik menjawab: **ketika parameter berubah, apakah frekuensi kejadian dalam "
-        "7 hari ikut berubah?** Hubungan bukan sebab-akibat dan bukan pengganti model produksi.",
+        "This chart asks: **when a parameter changes, does the frequency of events "
+        "within 7 days also change?** Association is not causation and does not replace "
+        "the production model.",
         icon="ℹ️",
     )
     display = summary.drop(columns="key").copy()
-    display["Koefisien"] = display.Koefisien.map(lambda value: f"{value:+.3f}")
+    display["Coefficient"] = display.Coefficient.map(lambda value: f"{value:+.3f}")
     display["AUC"] = display.AUC.map(lambda value: f"{value:.3f}")
     st.dataframe(display, width="stretch", hide_index=True)
-    st.caption("AUC 0,50 berarti satu parameter hampir tidak bisa membedakan kondisi.")
+    st.caption("An AUC of 0.50 means one parameter can barely distinguish the conditions.")
 
 
 def _render_parameter(data: pd.DataFrame, selected_parameter: str | None = None) -> None:
-    st.markdown("### Hubungan per parameter")
-    st.caption("Batang = kejadian aktual pada test; garis = pola dari periode sebelumnya.")
+    st.markdown("### Relationship by parameter")
+    st.caption("Bars = actual test events; line = pattern learned from the earlier period.")
     labels = {label: sensor for sensor, label in SENSORS.items()}
     if selected_parameter is None:
-        label = st.selectbox("Parameter sensor", list(labels), key="regression_sensor")
+        label = st.selectbox("Sensor parameter", list(labels), key="regression_sensor")
         sensor = labels[label]
     else:
         sensor = selected_parameter
@@ -848,7 +852,7 @@ def _render_parameter(data: pd.DataFrame, selected_parameter: str | None = None)
     train, test = data[data.split.eq(TRAIN_SPLIT)], data[data.split.eq(TEST_SPLIT)]
     fitted = _fit_logistic(train, test, [sensor])
     if fitted is None:
-        st.warning("Observasi belum cukup.")
+        st.warning("There are not enough observations yet.")
         return
     scaler, model, probability = fitted
     observed = test[[sensor, "y_true"]].copy()
@@ -871,9 +875,9 @@ def _render_parameter(data: pd.DataFrame, selected_parameter: str | None = None)
             y=binned.rate * 100,
             customdata=np.column_stack([binned.events, binned.n]),
             marker_color="rgba(31,95,214,.38)",
-            name="Kejadian aktual",
+            name="Actual events",
             hovertemplate=(
-                "Nilai: %{x:.3f}<br>Kejadian: %{y:.2f}%<br>"
+                "Value: %{x:.3f}<br>Events: %{y:.2f}%<br>"
                 "Event: %{customdata[0]:.0f}<br>n: %{customdata[1]:.0f}<extra></extra>"
             ),
         )
@@ -882,22 +886,24 @@ def _render_parameter(data: pd.DataFrame, selected_parameter: str | None = None)
             y=y_line * 100,
             mode="lines",
             line={"color": RED if coefficient >= 0 else GREEN, "width": 3},
-            name="Regresi logistik",
+            name="Logistic regression",
         )
         figure.update_layout(
-            **_layout(f"{label} dan kejadian dalam 7 hari", label, "Kejadian aktual (%)")
+            **_layout(f"{label} and events within 7 days", label, "Actual events (%)")
         )
         figure.update_yaxes(rangemode="tozero")
         st.plotly_chart(figure, width="stretch")
     with read_col:
-        direction = "meningkat" if coefficient >= 0 else "menurun"
-        st.metric("Arah hubungan", direction.capitalize())
-        st.metric("AUC satu parameter", f"{auc:.3f}")
-        st.metric("Kekuatan indikatif", _strength(auc))
-        st.markdown(f"Saat {label.lower()} meningkat, risiko teramati cenderung **{direction}**.")
+        direction = "increase" if coefficient >= 0 else "decrease"
+        st.metric("Relationship direction", direction.capitalize())
+        st.metric("Single-parameter AUC", f"{auc:.3f}")
+        st.metric("Indicative strength", _strength(auc))
+        st.markdown(
+            f"As {label.lower()} rises, observed risk tends to **{direction}**."
+        )
         st.caption(
-            "Jangan menetapkan alarm dari satu grafik; sensor lain dan beban operasi "
-            "ikut berpengaruh."
+            "Do not set an alarm from one chart; other sensors and operating load "
+            "also influence risk."
         )
 
 
@@ -912,17 +918,17 @@ def _coefficient_chart(coefficients: pd.DataFrame, title: str) -> go.Figure:
         textposition="outside",
     ))
     figure.add_vline(x=0, line={"color": "#64748b", "width": 1})
-    figure.update_layout(**_layout(title, "Koefisien standar", ""))
+    figure.update_layout(**_layout(title, "Standardized coefficient", ""))
     return figure
 
 
 def _render_combined(data: pd.DataFrame) -> None:
-    st.markdown("### Semua parameter secara bersamaan")
+    st.markdown("### All parameters combined")
     sensors = list(SENSORS)
     train, test = data[data.split.eq(TRAIN_SPLIT)], data[data.split.eq(TEST_SPLIT)]
     fitted = _fit_logistic(train, test, sensors)
     if fitted is None:
-        st.warning("Observasi belum cukup.")
+        st.warning("There are not enough observations yet.")
         return
     _, model, probability = fitted
     actual = test.y_true.to_numpy(int)
@@ -951,7 +957,7 @@ def _render_combined(data: pd.DataFrame) -> None:
             y=calibration.observed * 100,
             mode="lines+markers",
             line={"color": BLUE},
-            name="Hasil test",
+            name="Test results",
         )
         figure.add_scatter(
             x=[0, maximum],
@@ -961,26 +967,26 @@ def _render_combined(data: pd.DataFrame) -> None:
             name="Ideal",
         )
         figure.update_layout(
-            **_layout("Kalibrasi risiko", "Estimasi kejadian (%)", "Kejadian aktual (%)")
+            **_layout("Risk calibration", "Estimated events (%)", "Actual events (%)")
         )
         st.plotly_chart(figure, width="stretch")
     with right:
         st.plotly_chart(
-            _coefficient_chart(coefficients, "Kontribusi gabungan"),
+            _coefficient_chart(coefficients, "Combined contribution"),
             width="stretch",
         )
     st.caption(
-        "Model penjelas dilatih pada rolling validation dan dinilai pada periode test "
-        "yang lebih baru. Average precision cocok untuk event yang jarang; Brier score "
-        "mengukur kesalahan probabilitas (lebih kecil lebih baik)."
+        "The explanatory model is trained on rolling validation and evaluated on a newer "
+        "test period. Average precision suits rare events; Brier score measures probability "
+        "error, where lower is better."
     )
 
 
 def _render_linear_appendix(data: pd.DataFrame) -> None:
-    with st.expander("Lampiran: regresi linear berganda terhadap skor model"):
+    with st.expander("Appendix: multiple linear regression against model scores"):
         st.warning(
-            "Bagian ini tidak memprediksi hari kerusakan dan tidak menentukan status. "
-            "Ia hanya menguji apakah tujuh sensor bisa meniru skor model secara linear."
+            "This section does not predict a failure date or determine status. It only "
+            "tests whether seven sensors can reproduce the model score linearly."
         )
         sensors = list(SENSORS)
         train, test = data[data.split.eq(TRAIN_SPLIT)], data[data.split.eq(TEST_SPLIT)]
@@ -991,12 +997,12 @@ def _render_linear_appendix(data: pd.DataFrame) -> None:
         prediction = model.predict(x_test)
         test_r2 = float(r2_score(test.failure_probability, prediction))
         col1, col2 = st.columns(2)
-        col1.metric("R² periode test", f"{test_r2:.3f}")
-        col2.metric("Observasi test", f"{len(test):,}")
+        col1.metric("Test-period R-squared", f"{test_r2:.3f}")
+        col2.metric("Test observations", f"{len(test):,}")
         if test_r2 < 0.30:
             st.info(
-                "Pendekatan linear lemah; model produksi menangkap pola non-linear "
-                "atau interaksi antarparameter."
+                "The linear approach is weak; the production model captures nonlinear "
+                "patterns or interactions between parameters."
             )
 
         coefficients = pd.DataFrame({
@@ -1022,15 +1028,15 @@ def _render_linear_appendix(data: pd.DataFrame) -> None:
                 y=[minimum, maximum],
                 mode="lines",
                 line={"color": ORANGE, "dash": "dash"},
-                name="Sama persis",
+                name="Perfect match",
             )
             figure.update_layout(
-                **_layout("Skor model vs estimasi linear", "Skor model", "Estimasi linear")
+                **_layout("Model score vs linear estimate", "Model score", "Linear estimate")
             )
             st.plotly_chart(figure, width="stretch")
         with right:
             st.plotly_chart(
-                _coefficient_chart(coefficients, "Koefisien linear"),
+                _coefficient_chart(coefficients, "Linear coefficients"),
                 width="stretch",
             )
 
@@ -1055,28 +1061,28 @@ def render_regression_analysis(project_root: Path) -> None:
     """Render a readable parameter-association analysis."""
     st.markdown(
         "<div class='executive-header'><div class='executive-kicker'>MODEL EXPLAINABILITY</div>"
-        "<div class='executive-title'>Forecast Kondisi dan Risiko Equipment</div>"
-        "<div class='executive-subtitle'>Tren historis, proyeksi sensor, dan estimasi "
-        "risiko masa depan dengan ketidakpastian yang terlihat.</div></div>",
+        "<div class='executive-title'>Equipment Condition and Risk Forecast</div>"
+        "<div class='executive-subtitle'>Historical trends, sensor projections, and "
+        "future risk estimates with visible uncertainty.</div></div>",
         unsafe_allow_html=True,
     )
-    with st.spinner("Menyiapkan data evaluasi..."):
+    with st.spinner("Preparing evaluation data..."):
         data = _load_regression_dataset(str(project_root))
     if data.empty:
-        st.warning("Data analisis belum tersedia. Jalankan pipeline ML terlebih dahulu.")
+        st.warning("Analysis data is not available yet. Run the ML pipeline first.")
         return
 
     start = pd.Timestamp(data.timestamp.min()).strftime("%d %b %Y")
     end = pd.Timestamp(data.timestamp.max()).strftime("%d %b %Y")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Sampel evaluasi", f"{len(data):,}")
+    col1.metric("Evaluation samples", f"{len(data):,}")
     col2.metric("Equipment", f"{data.equipment_tag.nunique()}")
-    col3.metric("Event rate 7 hari", f"{data.y_true.mean() * 100:.2f}%")
-    col4.metric("Periode", f"{start} - {end}")
+    col3.metric("7-day event rate", f"{data.y_true.mean() * 100:.2f}%")
+    col4.metric("Period", f"{start} - {end}")
 
     summary = _summary(data)
     tab1, tab2, tab3, tab4 = st.tabs(
-        ["Forecast masa depan", "Ringkasan hubungan", "Per parameter", "Detail teknis"]
+        ["Future forecast", "Relationship summary", "By parameter", "Technical details"]
     )
     with tab1:
         render_predictive_forecast_evidence(project_root)
@@ -1088,6 +1094,6 @@ def render_regression_analysis(project_root: Path) -> None:
         _render_combined(data)
         _render_linear_appendix(data)
     st.caption(
-        "Hasil menunjukkan asosiasi, bukan penyebab. "
-        "Estimasi waktu kejadian memerlukan model survival/time-to-event terpisah."
+        "Results show associations, not causes. Estimating event timing requires a "
+        "separate survival or time-to-event model."
     )

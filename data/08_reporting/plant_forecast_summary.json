@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0.0",
+  "model_version": "plant_champion_forecast_v1.0.0",
+  "source_timestamp": "2026-10-04T00:00:00",
+  "plant_count": 9,
+  "target_count": 6,
+  "model_count": 54,
+  "horizon_days": 30,
+  "rolling_folds": 3,
+  "backtest_horizon_days": 30,
+  "models_beating_baseline": 27,
+  "selected_model_counts": {
+    "seasonal_naive_7d": 27,
+    "autoregressive_ridge": 19,
+    "hist_gradient_boosting": 8
+  },
+  "data_classification": "synthetic_demo",
+  "selection_policy": "Lowest rolling-backtest WAPE, but ML must beat the 7-day seasonal baseline by the configured margin and fold consistency guardrail.",
+  "target_definitions": {
+    "production_rate_proxy": {
+      "domain": "production",
+      "label": "Production rate proxy",
+      "unit": "source rate unit",
+      "daily_aggregation": "daily_mean"
+    },
+    "energy_kwh": {
+      "domain": "energy",
+      "label": "Energy consumption",
+      "unit": "kWh",
+      "daily_aggregation": "daily_sum"
+    },
+    "co2_ton": {
+      "domain": "emissions",
+      "label": "CO2 emissions",
+      "unit": "ton",
+      "daily_aggregation": "daily_sum"
+    },
+    "nox_ppm": {
+      "domain": "emissions",
+      "label": "NOx concentration",
+      "unit": "ppm",
+      "daily_aggregation": "daily_mean"
+    },
+    "sox_ppm": {
+      "domain": "emissions",
+      "label": "SOx concentration",
+      "unit": "ppm",
+      "daily_aggregation": "daily_mean"
+    },
+    "voc_fugitive_kg": {
+      "domain": "emissions",
+      "label": "Fugitive VOC emissions",
+      "unit": "kg",
+      "daily_aggregation": "daily_sum"
+    }
+  },
+  "usage_note": "Synthetic-demo planning forecast; validate units and operating drivers before financial, production-commitment, or regulatory use."
+}

@@ -32,6 +32,8 @@ python Caliber.py run --pipelines predictive_maintenance
 python Caliber.py run --pipelines model_hardening
 # Persist 30-day autoregressive sensor and risk forecasts for dashboard deployment:
 python Caliber.py run --pipelines condition_forecasting
+# Forecast plant production, energy, and emissions with rolling model selection:
+python Caliber.py run --pipelines plant_forecasting
 # Build episode, robustness, SHAP, model-card, and demo evidence:
 python Caliber.py run --pipelines competition_readiness
 # Retrieve precedents only from the five verified RCA cases:

@@ -12,10 +12,26 @@ from dashboard.data import (
     load_dashboard_data,
 )
 from dashboard.descriptive import page_window
-from dashboard.executive_view import build_executive_priority
+from dashboard.executive_view import _en, build_executive_priority
+from dashboard.plant_forecast_view import _forecast_kpis, _plant_forecast_figure
 
 
 class DashboardDataTests(unittest.TestCase):
+    def test_pipeline_messages_are_rendered_in_english(self):
+        cases = {
+            "Inspeksi segera dan siapkan tindakan pemeliharaan": (
+                "Inspect immediately and prepare a maintenance action"
+            ),
+            "Alert model ditahan oleh guardrail kualitas data: fitur di luar rentang training 62.5%": (
+                "The model alert is withheld by the data-quality guardrail: "
+                "features outside the training range 62.5%"
+            ),
+        }
+
+        for source, expected in cases.items():
+            with self.subTest(source=source):
+                self.assertEqual(_en(source), expected)
+
     def test_executive_priority_excludes_normal_and_hides_model_scores(self):
         risk = pd.DataFrame(
             {
@@ -197,6 +213,58 @@ class DetailPagerTests(unittest.TestCase):
                 self.assertIn(page, window)
                 self.assertEqual(window[0], 1)
                 self.assertEqual(window[-1], page_count)
+
+
+class PlantForecastViewTests(unittest.TestCase):
+    def test_kpis_sum_additive_targets_and_compare_daily_average(self):
+        history = pd.DataFrame(
+            {
+                "date": pd.date_range("2026-01-01", periods=30, freq="D"),
+                "actual": [100.0] * 30,
+            }
+        )
+        forecast = pd.DataFrame(
+            {
+                "date": pd.date_range("2026-01-31", periods=7, freq="D"),
+                "forecast": [110.0] * 7,
+                "lower_80": [100.0] * 7,
+                "upper_80": [120.0] * 7,
+            }
+        )
+
+        kpis = _forecast_kpis(history, forecast, "daily_sum")
+
+        self.assertEqual(kpis["period_value"], 770.0)
+        self.assertEqual(kpis["change_pct"], 10.0)
+        self.assertEqual(kpis["direction"], "Increasing")
+
+    def test_figure_contains_actual_forecast_and_uncertainty_traces(self):
+        history = pd.DataFrame(
+            {
+                "date": pd.date_range("2026-01-01", periods=30, freq="D"),
+                "actual": range(30),
+            }
+        )
+        forecast = pd.DataFrame(
+            {
+                "date": pd.date_range("2026-01-31", periods=7, freq="D"),
+                "forecast": range(30, 37),
+                "lower_80": range(29, 36),
+                "upper_80": range(31, 38),
+            }
+        )
+
+        figure = _plant_forecast_figure(
+            history,
+            forecast,
+            plant="NUP",
+            label="Energy Consumption",
+            unit="kWh",
+        )
+
+        self.assertEqual(len(figure.data), 4)
+        self.assertEqual(figure.data[0].name, "Actual")
+        self.assertEqual(figure.data[-1].name, "Forecast")
 
 
 if __name__ == "__main__":
