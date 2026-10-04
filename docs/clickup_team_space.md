@@ -33,12 +33,14 @@ Selesainya sebuah tindakan CAPA tidak dianggap sebagai RCA insiden terverifikasi
    lokal tidak tersedia, backend memakai fallback Ollama Cloud `gemma4:31b` dengan
    `OLLAMA_API_KEY` dari environment atau `.env` yang diabaikan Git.
 5. Dashboard, unduhan laporan, dan deskripsi task menggunakan satu teks laporan.
-6. Tombol **Create Progress Tracking** pada Executive Summary membuat satu draft
-   RCA dan satu task usulan CAPA per action dalam List workflow yang sama.
-   Task-task tersebut saling ditautkan dan dimulai pada `to review`.
-7. SME meninjau RCA dan setiap usulan CAPA. Task CAPA sengaja dibuat tanpa PIC
-   dan timeline. Setelah action disetujui, SME menetapkan PIC dan timeline; PIC
-   memindahkan action yang disetujui ke `to do`. PIC mengubahnya menjadi
+6. Tombol **Create Progress Tracking** pada Executive Summary membuat satu task
+   corrective gabungan yang memuat draft RCA dan seluruh usulan CAPA. Task dimulai
+   pada `to review`.
+7. SME meninjau RCA dan tiga tahap CAPA: containment/verifikasi segera, corrective
+   action setelah penyebab dikonfirmasi, dan recurrence prevention. Task corrective
+   sengaja dibuat tanpa PIC agar penanggung jawab ditetapkan manual, sedangkan target
+   waktu dan KPI yang reasonable dicantumkan sebagai usulan. Setelah action disetujui, SME
+   menetapkan PIC; PIC memindahkan action yang disetujui ke `to do` dan mengubahnya menjadi
    `in progres` saat pekerjaan dimulai dan `done` setelah selesai.
 8. Pembuatan task dikunci ke workspace `1100330000013043`, space
    `1100330000037854`, folder `1100330000057836`, dan List `1100330000081187`.
@@ -61,7 +63,8 @@ Selesainya sebuah tindakan CAPA tidak dianggap sebagai RCA insiden terverifikasi
 - Tanpa precedent/SOP, dugaan tetap belum dapat dipastikan dan rekomendasi dibatasi
   pada validasi sensor, peninjauan data yang tersedia dan konsultasi SME.
 - Skor dan ambang Faiz ditulis langsung dari data. Dampak produksi, downtime,
-  PIC, tenggat, dan batas operasi yang tidak tersedia tidak dibuat-buat.
+  PIC dan batas operasi yang tidak tersedia tidak dibuat-buat. Khusus corrective,
+  target waktu relatif dan KPI boleh diusulkan secara wajar sebagai asumsi perencanaan.
 - Ringkasan kondisi dan batas bukti juga ditulis dari data/aturan yang diketahui.
   Respons mentah model disimpan terpisah untuk audit. Dalam uji lokal, Qwen pernah
   menulis skor skala 0–100 sebagai persentase risiko; kalimat tersebut tidak dipakai
@@ -84,6 +87,7 @@ Nilai nonrahasia berikut sudah disimpan di `.env` lokal:
 | Folder yang diwajibkan kode | 1100330000057836 |
 | CLICKUP_LIST_ID | 1100330000081187 |
 | CLICKUP_REVIEW_STATUS | to review |
+| CLICKUP_SOLVED_STATUSES | done,complete,closed |
 | CLICKUP_VERIFIED_STATUS | complete |
 
 Token API dibaca dari `.env` lokal yang diabaikan Git. Dialog berhenti sebelum

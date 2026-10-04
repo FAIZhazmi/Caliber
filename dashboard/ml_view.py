@@ -36,6 +36,7 @@ from dashboard.clickup import (  # noqa: E402
     explain_with_shap,
     fetch_clickup_board,
     load_clickup_board_snapshot,
+    load_rca_slides,
     load_verified_incidents,
     format_rca_report,
     ollama_draft,
@@ -827,17 +828,18 @@ def render_erika(reporting_directory: Path, filters: GlobalFilters) -> None:
             f"({erika_row['largest_recent_deviation_zscore']:+.2f}σ); nilai ini bukan SHAP."
         )
     st.caption(
-        "Dasar analisis: snapshot sensor dan hasil model Faiz. Lima dokumen PPTX "
-        "hanya menjadi contoh struktur dan metode penyusunan RCA."
+        "Dasar analisis: snapshot sensor, hasil model Faiz, dan lima dokumen PPTX "
+        "RCA/CAPA tervalidasi sebagai evidence historis."
     )
     matches = []
     try:
-        verified_incidents = load_verified_incidents()
-        if verified_incidents:
-            matches = search_rca(build_demo_query({**erika_row.to_dict(), "equipment_tag": erika_equipment}), verified_incidents)
-            validate_retrieval(matches, verified_incidents)
-        else:
-            st.info("Riwayat insiden terverifikasi belum tersedia. Analisis awal tetap memakai data equipment yang dipilih.")
+        historical_evidence = load_rca_slides()
+        historical_evidence.extend(load_verified_incidents())
+        matches = search_rca(
+            build_demo_query({**erika_row.to_dict(), "equipment_tag": erika_equipment}),
+            historical_evidence,
+        )
+        validate_retrieval(matches, historical_evidence)
     except ErikaError as exc:
         st.warning(str(exc))
 
@@ -1014,8 +1016,8 @@ def render_clickup_board(reporting_directory: Path, filters: GlobalFilters) -> N
                    if (kind == "Semua" or
                        (kind == "Insiden RCA" and task["list"]["id"] == incident_id) or
                        (kind == "Tindakan CAPA" and task["list"]["id"] == capa_id))]
-        preferred = ["Need Verification", "to do", "in progress", "complete"]
-        statuses = sorted({task["status"] for task in visible},
+        preferred = ["Need Verification", "to review", "to do", "in progress", "Solved"]
+        statuses = sorted({task["dashboard_status"] for task in visible},
                           key=lambda status: (preferred.index(status) if status in preferred else len(preferred),
                                               status.casefold()))
         if not statuses:
@@ -1023,7 +1025,7 @@ def render_clickup_board(reporting_directory: Path, filters: GlobalFilters) -> N
         for start in range(0, len(statuses), 3):
             for column, status in zip(st.columns(min(3, len(statuses) - start)),
                                       statuses[start:start + 3], strict=True):
-                items = [task for task in visible if task["status"] == status]
+                items = [task for task in visible if task["dashboard_status"] == status]
                 with column:
                     with st.container(border=True):
                         st.markdown(f"#### {status.upper()} · {len(items)}")
@@ -1036,6 +1038,8 @@ def render_clickup_board(reporting_directory: Path, filters: GlobalFilters) -> N
                                          for person in task.get("assignees") or []]
                                 st.caption(f"{task_kind} · {priority} · {_board_due_date(task.get('due_date'))}")
                                 st.caption("PIC: " + (", ".join(names) if names else "belum ditugaskan"))
+                                if task["is_solved"]:
+                                    st.caption(f"Solved · status ClickUp: {task['status']}")
                                 st.link_button("Buka task", task["url"], width="stretch")
     else:
         st.info("Board belum memiliki snapshot. Setelah token lokal tersedia, gunakan Muat ulang dari ClickUp.")

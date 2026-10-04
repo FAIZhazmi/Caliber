@@ -213,6 +213,23 @@ def production_daily_rate_total(
     )
 
 
+def production_equipment_daily_status(
+    tags: tuple[str, ...], date_from: date, date_to: date
+) -> pd.DataFrame:
+    """Daily per-equipment production and run-state observations for grounded diagnostics."""
+    return db.run_query(
+        "SELECT equipment_tag, date_trunc('day', timestamp) AS day, "
+        "AVG(feed_rate) AS avg_feed_rate, AVG(plant_rate) AS avg_plant_rate, "
+        "SUM(CASE WHEN run_status = 'ON' THEN 1 ELSE 0 END) AS on_observations, "
+        "SUM(CASE WHEN run_status <> 'ON' OR run_status IS NULL THEN 1 ELSE 0 END) "
+        "AS off_observations, COUNT(*) AS total_observations "
+        "FROM fact_production_hourly WHERE equipment_tag = ANY(:tags) "
+        "AND timestamp >= :start AND timestamp < :end "
+        "GROUP BY equipment_tag, day ORDER BY equipment_tag, day",
+        {"tags": list(tags), "start": _start(date_from), "end": _end_exclusive(date_to)},
+    )
+
+
 def incidents_for_tags(tags: tuple[str, ...], date_from: date, date_to: date) -> pd.DataFrame:
     return db.run_query(
         "SELECT equipment_tag, failure_date, downtime_hours, dominant_failure_mode "
@@ -346,6 +363,55 @@ def incident_timeline(tags: tuple[str, ...], date_from: date, date_to: date) -> 
     )
 
 
+def bad_actor_ranking(
+    tags: tuple[str, ...], date_from: date, date_to: date
+) -> pd.DataFrame:
+    """Rank equipment by incident count and total downtime in the selected period."""
+    return db.run_query(
+        "SELECT equipment_tag, COUNT(*) AS n, "
+        "COALESCE(SUM(downtime_hours), 0) AS total_downtime "
+        "FROM fact_incident WHERE equipment_tag = ANY(:tags) "
+        "AND failure_date >= :start AND failure_date < :end "
+        "GROUP BY equipment_tag ORDER BY total_downtime DESC, n DESC, equipment_tag",
+        {"tags": list(tags), "start": _start(date_from), "end": _end_exclusive(date_to)},
+    )
+
+
+def downtime_pareto(
+    tags: tuple[str, ...], date_from: date, date_to: date
+) -> pd.DataFrame:
+    """Return the equipment downtime Pareto source used by the assistant."""
+    return bad_actor_ranking(tags, date_from, date_to)
+
+
+def downtime_by_failure_mode(
+    tags: tuple[str, ...], date_from: date, date_to: date
+) -> pd.DataFrame:
+    return db.run_query(
+        "SELECT dominant_failure_mode, COUNT(*) AS n, "
+        "COALESCE(SUM(downtime_hours), 0) AS total_downtime "
+        "FROM fact_incident WHERE equipment_tag = ANY(:tags) "
+        "AND failure_date >= :start AND failure_date < :end "
+        "GROUP BY dominant_failure_mode ORDER BY total_downtime DESC, n DESC",
+        {"tags": list(tags), "start": _start(date_from), "end": _end_exclusive(date_to)},
+    )
+
+
+def downtime_by_plant(
+    tags: tuple[str, ...], date_from: date, date_to: date
+) -> pd.DataFrame:
+    return db.run_query(
+        "SELECT e.plant, i.dominant_failure_mode, COUNT(*) AS n, "
+        "COALESCE(SUM(i.downtime_hours), 0) AS total_downtime "
+        "FROM fact_incident i JOIN dim_equipment e ON e.equipment_tag = i.equipment_tag "
+        "WHERE i.equipment_tag = ANY(:tags) "
+        "AND i.failure_date >= :start AND i.failure_date < :end "
+        "GROUP BY e.plant, i.dominant_failure_mode "
+        "ORDER BY total_downtime DESC, n DESC, e.plant",
+        {"tags": list(tags), "start": _start(date_from), "end": _end_exclusive(date_to)},
+    )
+
+
 # ------------------------------------------------------ 3. Equipment health
 def health_heatmap(tags: tuple[str, ...], date_from: date, date_to: date) -> pd.DataFrame:
     return db.run_query(
@@ -391,6 +457,21 @@ def environmental_trend(
         f"SELECT plant, date_trunc('day', timestamp) AS day, AVG({pollutant_column}) AS value "
         "FROM fact_environmental_hourly WHERE plant = ANY(:plants) "
         "AND timestamp >= :start AND timestamp < :end GROUP BY plant, day ORDER BY day",
+        {"plants": list(plants), "start": _start(date_from), "end": _end_exclusive(date_to)},
+    )
+
+
+def environmental_benchmark(
+    plants: tuple[str, ...], date_from: date, date_to: date
+) -> pd.DataFrame:
+    """Return comparable plant-level averages for energy and environmental metrics."""
+    return db.run_query(
+        "SELECT plant, AVG(total_energy_kwh) AS total_energy_kwh, "
+        "AVG(co2_ton) AS co2_ton, AVG(nox_ppm) AS nox_ppm, "
+        "AVG(sox_ppm) AS sox_ppm, AVG(voc_fugitive_kg) AS voc_fugitive_kg, "
+        "AVG(wastewater_m3) AS wastewater_m3 "
+        "FROM fact_environmental_hourly WHERE plant = ANY(:plants) "
+        "AND timestamp >= :start AND timestamp < :end GROUP BY plant ORDER BY plant",
         {"plants": list(plants), "start": _start(date_from), "end": _end_exclusive(date_to)},
     )
 
