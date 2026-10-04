@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from dashboard import queries  # noqa: E402
+from dashboard.auth import render_logout, require_login  # noqa: E402
 from dashboard.ai_chatbot import render_ai_chatbot  # noqa: E402
 from dashboard.descriptive import render_overview_tab  # noqa: E402
 from dashboard.executive_view import (  # noqa: E402
@@ -33,6 +34,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+require_login()
 
 st.markdown(
     """
@@ -422,6 +425,8 @@ else:
         st.info("Set SUPABASE_DB_URL in the .env file using the Supabase Session Pooler.")
     else:
         render_overview_tab(descriptive_filters, parameters_dim, plants_dim)
+
+render_logout()
 
 render_ai_chatbot(
     PROJECT_ROOT,
