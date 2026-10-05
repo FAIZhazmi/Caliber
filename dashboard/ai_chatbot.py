@@ -1317,7 +1317,7 @@ def render_ai_chatbot(
         """
         <style>
           div[data-testid="stPopover"] {
-            position: fixed !important; right: 26px; bottom: 24px; z-index: 10000;
+            position: fixed !important; right: 26px; top: calc(var(--banner-h, 108px) + 72px); bottom: auto; z-index: 10000;
             width: auto !important;
           }
           div[data-testid="stPopover"] > button {
@@ -1337,7 +1337,7 @@ def render_ai_chatbot(
           .cal-ai-chat h3 { margin: 0; color: #0f3d91; }
           .cal-ai-chat p { color: #5d7199; font-size: .84rem; margin: .2rem 0 .7rem; }
           @media (max-width: 640px) {
-            div[data-testid="stPopover"] { right: 14px; bottom: 14px; }
+            div[data-testid="stPopover"] { right: 14px; top: calc(var(--banner-h, 108px) + 64px); bottom: auto; }
             div[data-testid="stPopover"] > button { min-height: 48px; padding: 0 15px; }
           }
         </style>
