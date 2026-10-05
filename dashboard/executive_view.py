@@ -90,8 +90,8 @@ def _render_progress_tracking_status(equipment_tag: str) -> None:
         _cached_progress_tracking_tasks.clear()
     try:
         board = _cached_progress_tracking_tasks()
-    except ErikaError as exc:
-        st.caption(f"ClickUp workflow status unavailable: {exc}")
+    except ErikaError:
+        st.caption("ClickUp workflow status is currently unavailable.")
         return
     task = _progress_task_for_equipment(board.get("tasks", []), equipment_tag)
     if not task:
@@ -568,8 +568,11 @@ def _progress_tracking_dialog(selected: dict[str, object]) -> None:
                 "Progress Tracking could not be created. Verify the ClickUp connection "
                 "and task configuration, then try again."
             )
-        except Exception as exc:  # Keep the dialog open and avoid a full dashboard crash.
-            st.error(f"Progress Tracking could not be created: {exc}")
+        except Exception:  # Keep the dialog open and avoid a full dashboard crash.
+            st.error(
+                "Progress Tracking could not be created. Verify the integration settings "
+                "and try again."
+            )
 
     result = st.session_state.get(f"progress_result_{equipment_tag}")
     if result:

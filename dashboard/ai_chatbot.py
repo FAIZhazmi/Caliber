@@ -1296,7 +1296,17 @@ def _process_question(
         )
         answer, provider = generate_grounded_answer(skill, question, evidence)
         messages.append({"role": "assistant", "content": answer, "skill": skill, "provider": provider})
-    except (DashboardDataError, ErikaError, ValueError) as exc:
+    except ErikaError:
+        messages.append({
+            "role": "assistant",
+            "content": (
+                "The requested integration or evidence source is currently unavailable. "
+                "Verify its configuration and try again."
+            ),
+            "skill": skill,
+            "error": True,
+        })
+    except (DashboardDataError, ValueError) as exc:
         messages.append({"role": "assistant", "content": str(exc), "skill": skill, "error": True})
     except Exception as exc:
         messages.append({

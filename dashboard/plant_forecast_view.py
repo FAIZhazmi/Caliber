@@ -27,13 +27,6 @@ TARGET_LABELS = {
     "sox_ppm": "SOx Concentration",
     "voc_fugitive_kg": "Fugitive VOC Emissions",
 }
-MODEL_LABELS = {
-    "seasonal_naive_7d": "weekly operating pattern",
-    "autoregressive_ridge": "autoregressive Ridge",
-    "hist_gradient_boosting": "gradient boosting",
-}
-
-
 @st.cache_data(ttl=60, show_spinner=False)
 def _load_plant_forecast_artifacts(
     reporting_directory: str,
@@ -307,10 +300,6 @@ def render_plant_forecast_outlook(reporting_directory: Path) -> None:
         & forecast["target"].astype(str).eq(str(target))
         & forecast["horizon_day"].le(int(horizon))
     ].copy()
-    selected_metric = metrics.loc[
-        metrics["plant"].astype(str).eq(str(plant))
-        & metrics["target"].astype(str).eq(str(target))
-    ]
     if selected_history.empty or selected_forecast.empty:
         st.warning("No forecast is available for this plant and target combination.")
         return
@@ -386,15 +375,4 @@ def render_plant_forecast_outlook(reporting_directory: Path) -> None:
         st.caption(
             "Solid blue = historical actual; dashed green = forecast; shaded area = "
             "80% uncertainty range. The range widens as the horizon gets farther away."
-        )
-
-    if not selected_metric.empty:
-        metric = selected_metric.iloc[0]
-        method = MODEL_LABELS.get(
-            str(metric["selected_model"]), str(metric["selected_model"])
-        )
-        st.caption(
-            f"Forecast method selected automatically through rolling validation: {method}. "
-            "Synthetic-demo planning estimate; not a production commitment or "
-            "regulatory emissions report."
         )

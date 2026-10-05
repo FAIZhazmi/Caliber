@@ -793,9 +793,13 @@ def render_predictive_forecast_evidence(
                 width="stretch",
                 config={"displayModeBar": False, "scrollZoom": False},
             )
-            st.caption(
-                "Solid line = actual data. Dashed line = forecast direction. "
-                "Green area = 80% uncertainty range; wider means less certain."
+            st.markdown(
+                """<div class="cal-chart-legend" style="display:flex;flex-wrap:wrap;gap:.5rem 1rem;padding:0 .45rem .75rem;color:#68757f;font-size:.78rem">
+                <span style="display:inline-flex;align-items:center;gap:.3rem"><i style="display:inline-block;width:22px;border-top:3px solid #49a98b"></i><b>Actual history</b></span>
+                <span style="display:inline-flex;align-items:center;gap:.3rem"><i style="display:inline-block;width:22px;border-top:3px dashed #2f8f76"></i><b>Forecast</b></span>
+                <span style="display:inline-flex;align-items:center;gap:.3rem"><i style="display:inline-block;width:22px;height:9px;border-radius:3px;background:rgba(73,169,139,.18)"></i><b>80% uncertainty range</b></span>
+                <small style="flex-basis:100%;color:#8a96a1">A wider range indicates greater uncertainty.</small></div>""",
+                unsafe_allow_html=True,
             )
     with risk_column:
         with st.container(border=True):
@@ -808,10 +812,13 @@ def render_predictive_forecast_evidence(
                 width="stretch",
                 config={"displayModeBar": False, "scrollZoom": False},
             )
-            st.caption(
-                "Bars show risk by date; the green line summarizes the 7-day trend. "
-                "These values come from an explanatory model based on sensor forecasts "
-                "and do not determine ACTION_NOW or PLAN_MAINTENANCE."
+            st.markdown(
+                """<div class="cal-chart-legend" style="display:flex;flex-wrap:wrap;gap:.5rem 1rem;padding:0 .45rem .75rem;color:#68757f;font-size:.78rem">
+                <span style="display:inline-flex;align-items:center;gap:.3rem"><i style="display:inline-block;width:13px;height:12px;border-radius:2px;background:rgba(73,169,139,.28)"></i><b>Daily projected risk</b></span>
+                <span style="display:inline-flex;align-items:center;gap:.3rem"><i style="display:inline-block;width:22px;border-top:3px solid #2f8f76"></i><b>7-day trend</b></span>
+                <span style="display:inline-flex;align-items:center;gap:.3rem"><i style="display:inline-block;width:22px;height:9px;border-radius:3px;background:rgba(73,169,139,.18)"></i><b>80% risk range</b></span>
+                <small style="flex-basis:100%;color:#8a96a1">Experimental evidence only; this chart does not set the maintenance status.</small></div>""",
+                unsafe_allow_html=True,
             )
 
 
