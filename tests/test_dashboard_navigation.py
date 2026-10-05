@@ -23,14 +23,25 @@ class DashboardNavigationTests(TestCase):
             self.addCleanup(mock.stop)
 
     def run_dashboard(self, entry="executive_app.py"):
-        app = AppTest.from_file(str(ROOT / "dashboard" / entry), default_timeout=45).run()
+        app = AppTest.from_file(str(ROOT / "dashboard" / entry), default_timeout=45)
+        app.session_state["auth_user"] = "test-user"
+        app = app.run()
         self.assertFalse(app.exception, [item.message for item in app.exception])
         workspace = next(
-            widget for widget in app.segmented_control
+            widget for widget in app.button_group
             if widget.key == "analytics_workspace"
         )
         self.assertEqual(workspace.value, "Predictive Analytics")
         return app
+
+    @staticmethod
+    def prepare_widget_rerun(app):
+        """Work around Streamlit 1.53 serializing a single button group as a list."""
+        workspace = next(
+            widget for widget in app.button_group
+            if widget.key == "analytics_workspace"
+        )
+        workspace.set_value([workspace.value])
 
     def test_both_launchers_render_every_module(self):
         for entry in ("app.py", "executive_app.py"):
@@ -66,9 +77,9 @@ class DashboardNavigationTests(TestCase):
 
     def test_descriptive_workspace_uses_the_unified_overview(self):
         app = self.run_dashboard()
-        workspace = next(widget for widget in app.segmented_control
+        workspace = next(widget for widget in app.button_group
                          if widget.key == "analytics_workspace")
-        app = workspace.set_value("Descriptive Analytics").run()
+        app = workspace.set_value(["Descriptive Analytics"]).run()
         self.assertFalse(app.exception, [item.message for item in app.exception])
         self.assertFalse(app.tabs)
         self.assertTrue(any("cannot connect" in e.value for e in app.error))
@@ -76,9 +87,9 @@ class DashboardNavigationTests(TestCase):
     def test_missing_reporting_keeps_descriptive_tabs_accessible(self):
         with patch("dashboard.data.load_dashboard_data", side_effect=DashboardDataError("missing")):
             app = self.run_dashboard()
-            workspace = next(widget for widget in app.segmented_control
+            workspace = next(widget for widget in app.button_group
                              if widget.key == "analytics_workspace")
-            app = workspace.set_value("Descriptive Analytics").run()
+            app = workspace.set_value(["Descriptive Analytics"]).run()
         self.assertFalse(app.tabs)
         self.assertTrue(any("cannot connect" in e.value for e in app.error))
 
@@ -87,6 +98,7 @@ class DashboardNavigationTests(TestCase):
         equipment_filter = next(widget for widget in app.selectbox
                                 if widget.key == "predictive_equipment_filter")
         tag = equipment_filter.options[1]
+        self.prepare_widget_rerun(app)
         app = equipment_filter.set_value(tag).run()
         self.assertFalse(app.exception, [item.message for item in app.exception])
         selected = next(widget for widget in app.selectbox
@@ -100,6 +112,7 @@ class DashboardNavigationTests(TestCase):
         action_tags = ["PM-4405B", "BL-5702"]
         for tag in action_tags:
             with self.subTest(equipment=tag):
+                self.prepare_widget_rerun(app)
                 app = detail.set_value(tag).run()
                 self.assertFalse(app.exception, [item.message for item in app.exception])
                 self.assertTrue(any(
