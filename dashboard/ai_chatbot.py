@@ -277,12 +277,15 @@ def _question_scope(question: str, filters: GlobalFilters) -> GlobalFilters:
         plant_columns = [column for column in ("plant", "plant_code", "plant_name") if column in equipment]
         masks = []
         for column in plant_columns:
-            masks.append(equipment[column].fillna("").astype(str).map(
-                lambda value: bool(value) and bool(re.search(
-                    rf"(?<!\w){re.escape(value.casefold()).replace(r'\ ', r'\s+')}(?!\w)",
-                    lower,
-                ))
-            ))
+            def matches_plant(value: str) -> bool:
+                if not value:
+                    return False
+                escaped_value = re.escape(value.casefold()).replace(r"\ ", r"\s+")
+                return bool(re.search(rf"(?<!\w){escaped_value}(?!\w)", lower))
+
+            masks.append(
+                equipment[column].fillna("").astype(str).map(matches_plant)
+            )
         if masks:
             plant_mask = pd.concat(masks, axis=1).any(axis=1)
             if plant_mask.any():

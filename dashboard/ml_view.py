@@ -433,7 +433,6 @@ def render_ml_equipment(reporting_directory: Path, filters: GlobalFilters) -> No
     if filtered.empty:
         st.info("Tidak ada equipment yang cocok dengan filter saat ini.")
         return
-    filtered_plants = aggregate_equipment_by_plant(filtered)
     competition_evidence, shap_values = _cached_competition_evidence(str(reporting_directory))
     rca_rag_summary, inspection_guidance = _cached_rca_rag_evidence(str(reporting_directory))
     st.subheader("Seluruh equipment terfilter")
@@ -503,7 +502,6 @@ def render_ml_model(reporting_directory: Path, filters: GlobalFilters) -> None:
     if filtered.empty:
         st.info("Tidak ada equipment yang cocok dengan filter saat ini.")
         return
-    filtered_plants = aggregate_equipment_by_plant(filtered)
     competition_evidence, shap_values = _cached_competition_evidence(str(reporting_directory))
     rca_rag_summary, inspection_guidance = _cached_rca_rag_evidence(str(reporting_directory))
     st.subheader("Model dan kualitas data")
@@ -783,7 +781,6 @@ def render_erika(reporting_directory: Path, filters: GlobalFilters) -> None:
     if filtered.empty:
         st.info("Tidak ada equipment yang cocok dengan filter saat ini.")
         return
-    filtered_plants = aggregate_equipment_by_plant(filtered)
     competition_evidence, shap_values = _cached_competition_evidence(str(reporting_directory))
     rca_rag_summary, inspection_guidance = _cached_rca_rag_evidence(str(reporting_directory))
     st.subheader("Scope Erika — demo analisis RCA")
@@ -916,7 +913,6 @@ def render_erika(reporting_directory: Path, filters: GlobalFilters) -> None:
             st.session_state.get("erika_row_result", erika_row.to_dict()),
             analysis, st.session_state.get("erika_matches", [])
         )
-        checklist_items = analysis["draft"].get("recommendations", [])
         created = st.session_state.get("erika_clickup_result")
         if created and created.get("list_id") != incident_list_id:
             created = None
