@@ -1,0 +1,56 @@
+name: Keep Streamlit app awake
+
+on:
+  schedule:
+    # Every 4 hours; Streamlit sleeps apps after roughly 12 hours without visitors.
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Visit the app
+        env:
+          APP_URL: https://coreintelligent.streamlit.app
+        run: python .github/scripts/keep_alive.py
+
+      - name: Upload screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keep-alive-failure
+          path: keep_alive_failure.png
+          if-no-files-found: ignore
+
+      # Free Supabase projects pause after about a week of inactivity.
+      # Only runs once SUPABASE_URL and SUPABASE_SECRET_KEY exist as repo secrets.
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "Supabase secrets not set, skipping."
+            exit 0
+          fi
+          curl -fsS -o /dev/null \
+            -H "apikey: $SUPABASE_SECRET_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            "$SUPABASE_URL/dim_equipment?select=equipment_tag&limit=1"
+          echo "Supabase responded."
